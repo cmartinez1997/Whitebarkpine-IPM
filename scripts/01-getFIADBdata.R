@@ -6,12 +6,12 @@
 
 # Load Packages -----------------------------------------------------------
 
-library(DBI)#required to access FIADB
-library(tidyverse)#data processing
+library(DBI) #required to access FIADB
+library(tidyverse) #data processing
 
 # Getting data from SQL ---------------------------------------------------
 
-# Before we can get csv files, we have to download SQL db for our states of 
+# Before we can get csv files, we have to download SQL db for our states of
 # interest to our working directory by going to FIA datamart
 # https://experience.arcgis.com/experience/3641cea45d614ab88791aef54f3a1849/
 
@@ -57,7 +57,7 @@ db_file_names_MT <-
     "PLOT_REGEN",
     "PLOTGEOM")
 
-#loop through specified tables and write them at csvs
+# loop through specified tables and write them at csvs
 for (i in db_file_names_MT) {
   write_csv(dbReadTable(conn = con_MT, name = i),
             file = paste0(path_out_MT, "MT_", i, ".csv"))
@@ -81,11 +81,11 @@ db_file_names_WY <-
     "PLOT_REGEN",
     "PLOTGEOM")
 
-#loop through specified tables and write them at csvs
+# loop through specified tables and write them at csvs
 for (i in db_file_names_WY) {
   write_csv(dbReadTable(conn = con_WY, name = i),
             file = paste0(path_out_WY, "WY_", i, ".csv"))
 }
 
-#close connection
+# close connection
 dbDisconnect(con_ID, con_MT, con_WY)
