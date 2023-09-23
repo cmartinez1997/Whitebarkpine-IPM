@@ -1,6 +1,6 @@
 ## Making WBP data frame for growth model
 ## original code from Emily Schultz DRM: 
-## updated and reformatted in tidyverse by Cecilia Martinez
+## updated and reformatted by Cecilia Martinez
 ## April 20 2023
 ## cecimartinez333@gmail.com
 
@@ -40,27 +40,28 @@ wbp_growth_data <- wbp_remeasured %>%
 # look up previous PLT_CN and CONDID and add columns to data frame
 wbp_growth_data <- wbp_growth_data %>% 
   mutate(PREV_PLT_CN = grow_data_WBP$PLT_CN[match(PREV_TRE_CN, grow_data_WBP$TRE_CN)]) %>% 
-  mutate(DIA_DIFF = wbp_growth_data$DIA - wbp_growth_data$PREVDIA) #diameter is dbh in inches
+  mutate(DIA_DIFF = wbp_growth_data$DIA - wbp_growth_data$PREVDIA) %>%  #diameter is dbh in inches
+  mutate(PREV_CONDID = grow_data_WBP$CONDID[match(wbp_growth_data$PREV_TRE_CN, grow_data_WBP$TRE_CN)])
+         
+wbp_growth_data <- wbp_growth_data %>% select(TRE_CN, PLT_CN, PREV_TRE_CN, PREV_PLT_CN, DIA_DIFF, INVYR, STATECD, 
+                                              UNITCD, COUNTYCD, PLOT, SUBP, TREE, CONDID, PREVCOND, STATUSCD, DIA, 
+                                              STOCKING, PREVDIA, PREV_CONDID)
 
 # Read in plot data and get coordinates and previous measurement year
 plot_iw <- read_csv("data_processed/PLOT_MT-ID-WY.csv")
 
-# add new columns to wbp growth data frame from plot table, add census interval column
+# add columns, LAT/LON/ELEV/MEASYEAR/PREV_MEASYEAR/CENSUS_INTERVAL to wbp growth data frame from plot table, add census interval column
 wbp_growth_data_df <- wbp_growth_data %>%  
-mutate(PREV_MEASYEAR = plot_iw$MEASYEAR[match(wbp_growth_data$PREV_PLT_CN, plot_iw$CN)]) %>% 
-  left_join(plot_iw, by = c("PLT_CN" = "CN")) %>%
-  mutate(
-    INVYR = ifelse(!is.na(INVYR.y), INVYR.y, INVYR.x),
-    STATECD = ifelse(!is.na(STATECD.y), STATECD.y, STATECD.x),
-    UNITCD = ifelse(!is.na(UNITCD.y), UNITCD.y, UNITCD.x),
-    COUNTYCD = ifelse(!is.na(COUNTYCD.y), COUNTYCD.y, COUNTYCD.x), 
-    PLOT = ifelse(!is.na(PLOT.y), PLOT.y, PLOT.x)) %>%
-  dplyr::select(-INVYR.x, -INVYR.y, -STATECD.x, -STATECD.y, -UNITCD.x, -UNITCD.y, -COUNTYCD.x, -COUNTYCD.y, -PLOT.x, -PLOT.y) %>% 
+  mutate(LAT = plot_iw$LAT[match(wbp_growth_data_df$PLT_CN, plot_iw$CN)]) %>% 
+  mutate(LON = plot_iw$LON[match(wbp_growth_data_df$PLT_CN, plot_iw$CN)]) %>% 
+  mutate(ELEV = plot_iw$ELEV[match(wbp_growth_data_df$PLT_CN, plot_iw$CN)]) %>% 
+  mutate(MEASYEAR = plot_iw$MEASYEAR[match(wbp_growth_data_df$PLT_CN, plot_iw$CN)]) %>% 
+  mutate(PREV_MEASYEAR = plot_iw$MEASYEAR[match(wbp_growth_data$PREV_PLT_CN, plot_iw$CN)]) %>% 
   mutate(CENSUS_INTERVAL = MEASYEAR - PREV_MEASYEAR)
 
-# options(scipen = 999) #gets rid of scientific notation
+options(scipen = 999) #gets rid of scientific notation
 
-# look up previous (tree-specific) condition-level BALIVE(Basal area in square feet per acre of all live trees) #2765
+# look up previous (tree-specific) condition-level BALIVE(Basal area in square feet per acre of all live trees) 
 cond_iw <- read_csv("data_processed/COND_MT-ID-WY.csv") %>% 
   filter(COND_STATUS_CD == 1) # "accessible forest land" by FIA classification, go from 98,000 to 26,905
 
@@ -71,5 +72,9 @@ wbp_growth_data_df$BALIVE <- apply(X = wbp_growth_data_df[, c("PREV_PLT_CN", "PR
                                                      conds.df$CONDID %in% x["PREV_CONDID"]]
                                  },
                                  conds.df = cond_iw)
+#make BALIVE numeric instead of list so that NAs pop up and then remove the NA values 
+wbp_growth_data_df$BALIVE <- as.numeric(wbp_growth_data_df$BALIVE)
+wbp_growth_data_df <- wbp_growth_data_df %>% filter(!is.na(BALIVE)) #now we have 2719 trees with BALIVE predictor variable
 
-
+# Create output data frame and write to csv
+write_csv(wbp_growth_data_df, "data_processed/WBP_growth.csv")
