@@ -10,6 +10,7 @@ library(sp)
 library(raster)
 library(rgdal)
 library(tidyverse)
+library(ggthemr)
 
 # Read in and process data ------------------------------------------------
 
@@ -75,6 +76,17 @@ wbp_growth_data_df$BALIVE <- apply(X = wbp_growth_data_df[, c("PREV_PLT_CN", "PR
 #make BALIVE numeric instead of list so that NAs pop up and then remove the NA values 
 wbp_growth_data_df$BALIVE <- as.numeric(wbp_growth_data_df$BALIVE)
 wbp_growth_data_df <- wbp_growth_data_df %>% filter(!is.na(BALIVE)) #now we have 2719 trees with BALIVE predictor variable
+
+# Annualize the diameter between the census intervals 
+# note that growth increments need to be moved to the positive realm (by adding a constant)
+# But only IF the log transform is used
+wbp_growth_data_df$DIA_INCR_NEG <- wbp_growth_data_df$DIA_DIFF / wbp_growth_data_df$CENSUS_INTERVAL
+range(wbp_growth_data_df$DIA_INCR_NEG)
+# The range of values for dia_incr is -0.29 to 0.28
+
+# Add values to positive realm
+constant <- 0.29
+wbp_growth_data_df$DIA_INCR <- wbp_growth_data_df$DIA_INCR_NEG + constant
 
 # Create output data frame and write to csv
 write_csv(wbp_growth_data_df, "data_processed/WBP_growth.csv")
