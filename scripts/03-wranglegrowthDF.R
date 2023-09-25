@@ -46,7 +46,7 @@ wbp_growth_data <- wbp_growth_data %>%
          
 wbp_growth_data <- wbp_growth_data %>% dplyr::select(TRE_CN, PLT_CN, PREV_TRE_CN, PREV_PLT_CN, DIA_DIFF, INVYR, STATECD, 
                                               UNITCD, COUNTYCD, PLOT, SUBP, TREE, CONDID, PREVCOND, STATUSCD, DIA, 
-                                              STOCKING, PREVDIA, PREV_CONDID, AGENTCD, , DSTRBCD2, DSTRBCD)
+                                              STOCKING, PREVDIA, PREV_CONDID, AGENTCD)
 
 # Read in plot data and get coordinates and previous measurement year
 plot_iw <- read_csv("data_processed/PLOT_MT-ID-WY.csv")

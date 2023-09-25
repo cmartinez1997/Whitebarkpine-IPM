@@ -45,6 +45,15 @@ ggplot(wbp_grow_df, aes(x = PREVDIA, y = DIA_INCR_NEG)) +
        x = "PREVDIA",
        y = "DIA_INCR_NEG")
 
+# look at some summary statistics 
+wbp_grow_df %>%
+  reframe(summary(DIA)) #largest tree = 29.9 in #smallest tree = 1.0 in
+wbp_grow_df %>% mean(DIA)
+mean(wbp_grow_df$DIA)
+
+wbp_grow_df %>% count(DIA == PREVDIA) #390 stayed the same, #2329 changed, #2233 grew
+
+
 # Distribution of predictor variable
 # Original BALIVE histogram
 ggplot(wbp_grow_df, aes(x = BALIVE)) +
@@ -55,4 +64,19 @@ ggplot(wbp_grow_df, aes(x = BALIVE)) +
 ggplot(wbp_grow_df, aes(x = log(BALIVE))) +
   geom_histogram(binwidth = 0.2, alpha = 0.8) +
   labs(title = "Histogram of log(BALIVE)", x = "log(BALIVE)", y = "Frequency")
+
+# diameter increment growth - difference and incr vs BALIVE
+ggplot(wbp_grow_df, aes(x = BALIVE, y = DIA_DIFF)) +
+  geom_point() +
+  labs(title = "Scatterplot of Basal Area vs. DIA_DIFF",
+       x = "BALIVE",
+       y = "(DIA_DIFF)") + 
+  ylim(0, max(wbp_grow_df$DIA_DIFF)) #96 rows missing 
+
+ggplot(wbp_grow_df, aes(x = BALIVE, y = DIA_INCR)) +
+  geom_point() +
+  labs(title = "Scatterplot of Basal Area vs. DIA_INCR",
+       x = "BALIVE",
+       y = "(DIA_INCR)") +
+  ylim(0.29, max(wbp_grow_df$DIA_INCR))
 
