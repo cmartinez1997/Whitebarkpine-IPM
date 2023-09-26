@@ -45,6 +45,7 @@ ggplot(wbp_grow_df, aes(x = PREVDIA, y = DIA_INCR_NEG)) +
        x = "PREVDIA",
        y = "DIA_INCR_NEG")
 
+
 # look at some summary statistics 
 wbp_grow_df %>%
   reframe(summary(DIA)) #largest tree = 29.9 in #smallest tree = 1.0 in

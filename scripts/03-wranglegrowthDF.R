@@ -44,7 +44,7 @@ wbp_growth_data <- wbp_growth_data %>%
   mutate(DIA_DIFF = wbp_growth_data$DIA - wbp_growth_data$PREVDIA) %>%  #diameter is dbh in inches
   mutate(PREV_CONDID = grow_data_WBP$CONDID[match(wbp_growth_data$PREV_TRE_CN, grow_data_WBP$TRE_CN)])
          
-wbp_growth_data <- wbp_growth_data %>% dplyr::select(TRE_CN, PLT_CN, PREV_TRE_CN, PREV_PLT_CN, DIA_DIFF, INVYR, STATECD, 
+wbp_growth_data <- wbp_growth_data %>% dplyr::select(TRE_CN, PLT_CN, PREV_TRE_CN, PREV_PLT_CN, DIA_DIFF, SPCD, INVYR, STATECD, 
                                               UNITCD, COUNTYCD, PLOT, SUBP, TREE, CONDID, PREVCOND, STATUSCD, DIA, 
                                               STOCKING, PREVDIA, PREV_CONDID, AGENTCD)
 
