@@ -1,7 +1,7 @@
-## Exploring WBP growth data for growth model
-## original code from Emily Schultz DRM: 
+## Creating maps of whitebark pine distribution in the interior west
+## original code from: 
 ## updated and reformatted by Cecilia Martinez
-## April 20 2023
+## July 24 2023
 ## cecimartinez333@gmail.com
 
 

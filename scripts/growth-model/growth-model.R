@@ -98,10 +98,9 @@ for (i in gr.predictors) {
   attributes(scaled_grow_data[, i]) = NULL
 }
 
-plot(effect("BALIVE", gmodel.DIA.q))
-plot(effect("BALIVE", gmodel.DIA_lin))
-plot(effect("PREVDIA", gmodel.DIA.q))
-plot(effect("PREVDIA", gmodel.DIA_lin))
+#visualzie effect sizes of predictor variables 
+plot(effect("BALIVE", grow_model_quad))
+plot(effect("PREVDIA", grow_model_quad))
 
 
 # export model for coefficients and scaling information -------------------
