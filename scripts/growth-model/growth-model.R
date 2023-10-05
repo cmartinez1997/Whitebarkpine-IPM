@@ -32,29 +32,29 @@ scaled_growth_data <- model_growth_data %>% mutate_at(scale, .vars = vars(-TRE_C
 #growth model that includes plot level random effect
 
 #this is the linear model 
-grow_model_lin <- lmer(DIA_INCR ~ PREVDIA + BALIVE + (1|PLT_CN), data = scaled_growth_data)
-class(grow_model_lin) <- "lmerMOD"
+grow_model_01 <- lmer(DIA_INCR ~ PREVDIA + BALIVE + (1|PLT_CN), data = scaled_growth_data)
+class(grow_model_01) <- "lmerMOD"
 
 # check the model residuals in DHARMA: not looking so great 
-plot(simulateResiduals(grow_model_lin, integerResponse = F), quantreg = T)
-check_model(grow_model_lin)
+plot(simulateResiduals(grow_model_01, integerResponse = F), quantreg = T)
+check_model(grow_model_01)
 #how to graph residuals with mixed models?? - ask for help
 
 #check the residuals using DHARMA package
-plot(grow_model_lin)
+plot(grow_model_01)
 #quantile deviations detected 
 #model prediction - rank transformed
 
 #quadratic effects - check preference for model by using AICc
-grow_model_quad <- lmer(DIA_INCR ~ PREVDIA + BALIVE  + 
+grow_model_02 <- lmer(DIA_INCR ~ PREVDIA + BALIVE  + 
                        I(PREVDIA^2) + I(BALIVE^2) +
                        (1|PLT_CN), data = scaled_growth_data)
-qqnorm(residuals(grow_model_quad))
+qqnorm(residuals(grow_model_02))
 
-check_model(grow_model_quad)
-summary(grow_model_quad)
-plot(simulateResiduals(grow_model_quad, integerResponse = F), quantreg = T)
-plot(grow_model_quad)
+check_model(grow_model_02)
+summary(grow_model_02)
+plot(simulateResiduals(grow_model_02, integerResponse = F), quantreg = T)
+plot(grow_model_02)
 
 resid_pearson <- residuals(gmodel.DIA.q,type="pearson",scaled=TRUE)
 predicted <- predict(gmodel.DIA.q)
@@ -62,7 +62,7 @@ plotLowess(resid_pearson~predicted, ylab="Residuals",xlab="Predicted", main="Gau
 
 
 #model selection step using AIC
-mod_comp <- model.sel(grow_model_lin,grow_model_quad)
+mod_comp <- model.sel(grow_model_01,grow_model_02)
 #better model is the quadratic, but linear has the lower AIC
 
 grow_model_size <- lm(DIA ~ PREVDIA  + 
@@ -70,7 +70,7 @@ grow_model_size <- lm(DIA ~ PREVDIA  +
 
 
 # growSD is used for building IPM (see BuildIPM.R)
-grow_SD_quad <- sd(resid(grow_model_quad))
+grow_SD_02 <- sd(resid(grow_model_02))
 
 #make a model to check the IPM with only size as predictor
 gmodel_check <- lmer(DIA_INCR ~ PREVDIA   + 
@@ -99,12 +99,12 @@ for (i in gr.predictors) {
 }
 
 #visualzie effect sizes of predictor variables 
-plot(effect("BALIVE", grow_model_quad))
-plot(effect("PREVDIA", grow_model_quad))
+plot(effect("BALIVE", grow_model_02))
+plot(effect("PREVDIA", grow_model_02))
 
 
 # export model for coefficients and scaling information -------------------
 #save(gmodel.7, gr.scaling, growSD, file = "./Code/IPM/GrRescaling.Rdata")
-save(grow_model_quad, grow_SD_quad,grow_model_size, grow_SD_check,
+save(grow_model_02, grow_SD_02,grow_model_size, grow_SD_check,
      growth_scaling, scaled_growth_data, file = "models/Grow_Rescaling.Rdata")
 
