@@ -1,0 +1,20 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Whitebarkpine-IPM
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Cecilia
+    family-names: Martinez
+    email: cmartinez3@arizona.edu
+    name-particle: Cecilia
+    affiliation: University of Arizona
+repository-code: 'https://github.com/cmartinez1997/Whitebarkpine-IPM'
+url: 'https://citation-file-format.github.io/'
+abstract: >-
+  This work includes scripts for coding an IPM parameterized
+  with tree ring data on whitebark pine. 
