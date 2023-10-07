@@ -29,7 +29,8 @@ spatial_df <- map_data %>%
   select(TRE_CN,LAT,LON,STATECD,SPCD) %>%
   distinct() %>%
   mutate(Species = ifelse(SPCD==101,"Whitebark Pine"))
-length(unique(spatial_df$CN)) #318
+length(unique(spatial_df$TRE_CN)) #318
+
 
 ggplot() + 
   geom_polygon( data=m, aes(x=long, y=lat,group=group),colour="black", fill="white" )+
