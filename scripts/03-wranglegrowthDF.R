@@ -64,8 +64,9 @@ options(scipen = 999) #gets rid of scientific notation
 
 # look up previous (tree-specific) condition-level BALIVE(Basal area in square feet per acre of all live trees) 
 cond_iw <- read_csv("data_processed/COND_MT-ID-WY.csv") %>% 
-  filter(COND_STATUS_CD == 1) # "accessible forest land" by FIA classification, go from 98,000 to 26,905
-
+  filter(COND_STATUS_CD %in% c(1,2)) # forested and non-forested land by FIA classification
+    ### CONDID = 1 = Accessible forest land (>10% tally trees)
+    ### CONDID = 2 = Accessible nonforested land (<10% tally trees)   
 wbp_grow_survive_df$BALIVE <- apply(X = wbp_grow_survive_df[, c("PREV_PLT_CN", "PREV_CONDID")], 
                                  MARGIN = 1, # applies function to each row in grow_data_remeas
                                  FUN = function(x, conds.df) {
