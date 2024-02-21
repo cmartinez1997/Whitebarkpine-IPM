@@ -1,0 +1,29 @@
+---
+title: "ADS_dataexploration"
+author: "Cecilia Martinez"
+format: 
+  html:
+    toc: true
+editor: visual
+---
+
+Loading necessary packages for data exploration
+
+```{r}
+#| label: load-packages
+
+library(tidyverse)
+
+
+```
+
+## Data
+
+My data source is the table with Forest Inventory and Analysis (FIA) plots that have intersected with aerial detection survey (ADS) polygons containing bark beetle mortality, using a 400 meter buffer.
+
+```{r}
+#| include: false
+
+read_csv("data_raw/ADS_wbp_outbreak.csv")
+
+```

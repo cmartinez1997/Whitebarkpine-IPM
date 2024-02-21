@@ -17,7 +17,7 @@ ggthemr("fresh", layout = "clean")
 
 
 # Read in processed growth data -------------------------------------------
-wbp_grow_df <- read_csv("data_processed/WBP_growth.csv") #2719 trees, 28 columns/fields
+wbp_grow_df <- read_csv("data_processed/WBP_growth.csv") #2846 trees, 28 columns/fields
 
 # Data exploration --------------------------------------------------------
 
@@ -53,7 +53,6 @@ wbp_grow_df %>% mean(DIA)
 mean(wbp_grow_df$DIA)
 
 wbp_grow_df %>% count(DIA == PREVDIA) #390 stayed the same, #2329 changed, #2233 grew
-
 
 # Distribution of predictor variable
 # Original BALIVE histogram

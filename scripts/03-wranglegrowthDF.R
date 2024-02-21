@@ -25,7 +25,7 @@ write_csv(grow_data_WBP, "data_processed/TREE_WBP_IW.csv")
 
 # Only keep remeasured trees
 wbp_remeasured <- grow_data_WBP %>%
-  filter(!is.na(PREVDIA)) #8380 trees that were revisited/remeasrued
+  filter(!is.na(PREVDIA)) #8380 trees that were revisited/remeasured, note none it Wyominggre (talk to John Shaw)
 
 unique(wbp_remeasured$STATUSCD) # there are 3 status codes
 # STATUSCD 0 = no status --> tree not presently in sample, tree was incorrectly tallied in previous inventory

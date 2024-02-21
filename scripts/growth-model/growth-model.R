@@ -22,7 +22,7 @@ model_growth_data <- model_growth_data %>% dplyr::select(TRE_CN, PREV_TRE_CN, PL
                                                   DIA, PREVDIA, DIA_DIFF, DIA_INCR, MEASYEAR, PREV_MEASYEAR, CENSUS_INTERVAL, 
                                                   BALIVE, CONDID, STATUSCD, DSTRBCD1, DSTRBCD2, DSTRBCD3, AGENTCD)
 
-#standardize numerical covariates, center and scale 
+# standardize numerical covariates, center and scale 
 
 scaled_growth_data <- model_growth_data %>% mutate_at(scale, .vars = vars(-TRE_CN, -PREV_TRE_CN, -PLT_CN, -PREV_PLT_CN, -CONDID,
                                                                       -MEASYEAR, -PREV_MEASYEAR,
@@ -69,7 +69,7 @@ grow_model_size <- lm(DIA ~ PREVDIA  +
                         I(PREVDIA^2) , data = scaled_growth_data)
 
 
-# growSD is used for building IPM (see BuildIPM.R)
+# growSD is used for building IPM (see BuildIPM.R), look into this mroe
 grow_SD_02 <- sd(resid(grow_model_02))
 
 #make a model to check the IPM with only size as predictor
