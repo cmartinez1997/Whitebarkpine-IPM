@@ -1,4 +1,4 @@
-## Creating growth model
+## Creating survival model
 ## original code from Emily Schultz DRM: 
 ## updated and reformatted by Cecilia Martinez
 ## April 20 2023
@@ -128,11 +128,9 @@ surv_model3 <- glmer(mort ~ PREVDIA + BALIVE +
                   control=glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=10000)))
 #model selection
 
-
 mod_comp<-model.sel(surv_model1,surv_model2, surv_model3)
 mod_comp
-# strong preference for model1
-
+# strong preference for survival model1
 
 # specify the predictors in the "best" model (or candidate best)
 surv_predictors <- c("PREVDIA","BALIVE")

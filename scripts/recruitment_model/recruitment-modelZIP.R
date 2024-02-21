@@ -1,4 +1,4 @@
-## Creating growth model
+## Creating recruitment ZIP model
 ## original code from Emily Schultz DRM: 
 ## updated and reformatted by Cecilia Martinez
 ## April 20 2023
