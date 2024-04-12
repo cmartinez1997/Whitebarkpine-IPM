@@ -8,7 +8,6 @@
 # Load necessary packages -------------------------------------------------
 
 library(tidyverse)
-library(ggthemr)
 library(readr)
 
 
@@ -57,8 +56,6 @@ ggplot(ADS_data) +
   scale_x_continuous(breaks = unique(c(ADS_data$MEASYEAR, ADS_data$SURVEY_YEAR))) +
   theme_classic()
 
-
-
 # summary stats -----------------------------------------------------------
 
 wbp_tree <- read_csv("data_processed/WBP_survival.csv")
@@ -104,4 +101,22 @@ ggplot() +
   ylab('Latitude')+
   coord_fixed() +
   scale_colour_manual(values = c("1" = "darkgreen", "2" = "darkred"))
+
+
+###february 21 2024
+##explore with new data frame from Erin
+
+ads_dat <- read_csv("ADS-dataexploration_files/bark_beetle_repeat.csv")
+
+nrow(ads_dat) #41827 rows
+
+#filter by species code, wbp SPCD=101, HOST_CODE = 101
+head(ads_dat)
+
+ads_wbp <- ads_dat %>% 
+  filter(HOST_CODE ==101)
+nrow(ads_wbp) #1670 entries with repeats
+
+
+
 

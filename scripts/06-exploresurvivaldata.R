@@ -9,8 +9,6 @@
 # Load necessary packages -------------------------------------------------
 
 library(sp)
-library(raster)
-library(rgdal)
 library(ggplot2)
 library(wesanderson)
 library(tidyverse)
@@ -52,6 +50,22 @@ ggplot(wbp_survival, aes(x = STATUSCODE, fill = STATUSCODE)) +
   labs(title = "Total Survival and Mortality") +
   xlab("Status") 
 
+# how many trees died and how many trees lived
+# Count the number of individuals in each category
+status_counts <- table(wbp_survival$STATUSCODE)
+
+# Count of individuals who lived
+lived_count <- status_counts["Lived"]
+
+# Count of individuals who died
+died_count <- status_counts["Died"]
+
+# Print the counts
+print(paste("Lived:", lived_count))
+print(paste("Died:", died_count)) #4715 died from 2003-2019
+
+range(wbp_survival$INVYR) #2013-2019
+range(wbp_survival$PREV_MEASYEAR) #2003-2011
 # plot by alive and died by state
 ggplot(data = wbp_survival, aes(x = as.factor(STATECD), fill = STATUSCODE)) +
   geom_bar(position = "dodge") +

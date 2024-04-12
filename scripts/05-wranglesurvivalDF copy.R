@@ -52,7 +52,8 @@ wbp_survive_df <- wbp_survive_df %>%
   mutate(ELEV = plot_iw$ELEV[match(wbp_survive_df$PLT_CN, plot_iw$CN)]) %>% 
   mutate(MEASYEAR = plot_iw$MEASYEAR[match(wbp_survive_df$PLT_CN, plot_iw$CN)]) %>% 
   mutate(PREV_MEASYEAR = plot_iw$MEASYEAR[match(wbp_survive_df$PREV_PLT_CN, plot_iw$CN)]) %>% 
-  mutate(CENSUS_INTERVAL = MEASYEAR - PREV_MEASYEAR)
+  mutate(CENSUS_INTERVAL = MEASYEAR - PREV_MEASYEAR) %>% 
+  mutate(REMEAS_PERIOD = plot_iw$REMPER[match(wbp_survive_df$PLT_CN, plot_iw$CN)])
 
 options(scipen = 999) #gets rid of scientific notation
 

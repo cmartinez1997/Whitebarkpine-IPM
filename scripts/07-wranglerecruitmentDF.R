@@ -10,7 +10,6 @@
 library(tidyverse)
 library(sp)
 library(raster)
-library(rgdal)
 library(wesanderson)
 
 # read in data ------------------------------------------------------------
@@ -92,6 +91,8 @@ recruits12 <- tree_iw %>%
   print(nrow(tmp))
   recruitment_dat[recruitment_dat$plot == i, "recruits12"] <- nrow(tmp)
 }
+
+sum(recruitment_dat$PAwbp == 1)
 
 # more constrained definition of recruits, only RECONCILE CD 1
 # this is what I ended up using in ZIP models

@@ -52,13 +52,16 @@ wbp_grow_survive <- wbp_grow_survive %>% dplyr::select(TRE_CN, PLT_CN, PREV_TRE_
 plot_iw <- read_csv("data_processed/PLOT_MT-ID-WY.csv")
 
 # add columns, LAT/LON/ELEV/MEASYEAR/PREV_MEASYEAR/CENSUS_INTERVAL to wbp growth data frame from plot table, add census interval column
+# CENSUS INTERVAL is unecessary because REMPER is a plot level ACTUAL remeasurement period variable that goes to 0.1 when CENSUS INTERVAL is rounded to the ones
+  # better temporal resolution with REMPER. 
 wbp_grow_survive_df <- wbp_grow_survive %>%  
   mutate(LAT = plot_iw$LAT[match(wbp_grow_survive$PLT_CN, plot_iw$CN)]) %>% 
   mutate(LON = plot_iw$LON[match(wbp_grow_survive$PLT_CN, plot_iw$CN)]) %>% 
   mutate(ELEV = plot_iw$ELEV[match(wbp_grow_survive$PLT_CN, plot_iw$CN)]) %>% 
   mutate(MEASYEAR = plot_iw$MEASYEAR[match(wbp_grow_survive$PLT_CN, plot_iw$CN)]) %>% 
   mutate(PREV_MEASYEAR = plot_iw$MEASYEAR[match(wbp_grow_survive$PREV_PLT_CN, plot_iw$CN)]) %>% 
-  mutate(CENSUS_INTERVAL = MEASYEAR - PREV_MEASYEAR)
+  mutate(CENSUS_INTERVAL = MEASYEAR - PREV_MEASYEAR) %>% 
+  mutate(REMEAS_PERIOD = plot_iw$REMPER[match(wbp_grow_survive$PLT_CN, plot_iw$CN)])
 
 options(scipen = 999) #gets rid of scientific notation
 
