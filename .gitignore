@@ -13,4 +13,5 @@ data_processed/
 *.csv
 models/
 PRISM/data
+PRISM/data_formatted
 
