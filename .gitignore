@@ -6,8 +6,11 @@
 .quarto
 
 *.pdf
+*.duckdb
 data_raw/
 data_processed/
 *.db
 *.csv
 models/
+PRISM/data
+

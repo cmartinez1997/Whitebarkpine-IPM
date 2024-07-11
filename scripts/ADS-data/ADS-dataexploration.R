@@ -9,14 +9,16 @@
 
 library(tidyverse)
 library(readr)
-
+library(kableExtra)
 
 # load data ---------------------------------------------------------------
 
 ADS_data <- read_csv("data_raw/ADS_wbp_outbreak.csv") 
+
 head(ADS_data)
 str(ADS_data)
 summary(ADS_data)
+
 # survey years from 1999-2013
 # Measurement year: from 22010-2019
 
@@ -58,7 +60,7 @@ ggplot(ADS_data) +
 
 # summary stats -----------------------------------------------------------
 
-wbp_tree <- read_csv("data_processed/WBP_survival.csv")
+wbp_tree <- read_csv("data_processed/WBP_surv.csv")
 ads_merge <- merge(ADS_data, wbp_tree, "PLT_CN", all.x = T, all.y = F)
 nrow(ads_merge)
 
@@ -83,7 +85,7 @@ ggplot(ads_merge, aes(x = factor(STATECD.x), fill = factor(STATUSCD), group = fa
 # plot on maps which trees lived or died ------------------------------------------------------------
 
 library(maps)
-m = map_data('state', region = c('Wyoming', 'Montana', 'Idaho'))
+m = map_data('state', region = c('Montana', 'Idaho'))
 
 spatial_df <- ads_merge %>%
   ungroup() %>%
@@ -108,6 +110,7 @@ ggplot() +
 
 ads_dat <- read_csv("ADS-dataexploration_files/bark_beetle_repeat.csv")
 
+
 nrow(ads_dat) #41827 rows
 
 #filter by species code, wbp SPCD=101, HOST_CODE = 101
@@ -117,6 +120,102 @@ ads_wbp <- ads_dat %>%
   filter(HOST_CODE ==101)
 nrow(ads_wbp) #1670 entries with repeats
 
+ads_wbp$PLT_CN <- as.character(ads_wbp$PLT_CN)
+
+#ADS survey years
+ggplot(ads_wbp, aes(x = SURVEY_YEAR)) +
+  geom_histogram(binwidth = 1, color = "black", alpha = 0.7, position = "stack") +
+  labs(title = "ADS Survey Years",
+       x = "Survey Year",
+       y = "# plots with whitebark pine mortality") +
+  scale_x_continuous(breaks = unique(ADS_data$SURVEY_YEAR)) +
+  theme_classic()
+
+range(ads_wbp$SURVEY_YEAR) #survey years fo from 1999-2016
+
+#filter by damage causing code, which is 11006 for bark beetle
+ads_wbp <- ads_wbp %>% 
+  filter(DCA_CODE == 11006)
+nrow(ads_wbp) #1670, only damage causing agent for whitebark pine is bark beetle, this is good the number stays the same
+
+##match plt_CN from this dataframe to the tree table in FIA
+ads_wbp_tree <- read_csv("data_processed/WBP_surv.csv") #7434 trees
+head(ads_wbp_tree)
+
+#make plt_cn a character not numerical
+ads_wbp_tree$PLT_CN <- as.character(ads_wbp_tree$PLT_CN)
+ads_wbp <- as.character(ads_wbp$PLT_CN)
+                        
+
+#see if there are any duplicate PLT_CN values
+unique_ads <- unique(ads_wbp$PLT_CN)
+length(unique_ads) #811 unique ads PLT_CN so the rest are duplicated
+
+#now merge
+ads_comb <- left_join(ads_wbp, ads_wbp_tree, by = "PLT_CN", relationship = "many-to-many")
+nrow(ads_merge) # weird now there are 1913 trees
+
+
+# getting warning with merge, multiple duplicate CNs which is weird
+# group by PLT_CN and combine survey_years
+ads_wbp_comb <- ads_wbp %>%
+  group_by(PLT_CN) %>%
+  summarise(combined_years = toString(unique(SURVEY_YEAR)))
+
+# Perform left join on the combined data frame and ads_wbp_tree
+ads_wbp <- left_join(ads_wbp, ads_wbp_comb, by = "PLT_CN")
+ads_wbp <- rename(ads_wbp, SURV_YEARS_ALL = combined_years)
+
+ads_wbp_unique <- ads_wbp %>% 
+  select(-SURVEY_YEAR) %>% 
+  distinct()
+
+#now merge with Tree table
+ads_merge_final <- merge(ads_wbp_unique, ads_wbp_tree, "PLT_CN", all.x = T, all.y = F)
+head(ads_merge_final) 
+#filter to keep only trees that STATUSCD = 1 or NA
+
+ads_merge_final <- ads_merge_final %>% 
+  filter(STATUSCD == 2 )
+nrow(ads_merge_final) #1418 trees
+
+ads_merge_final %>%
+  summarise(n_distinct(PLT_CN)) #116 distinct unique plots
+
+ads_merge_final <- ads_merge_final %>% 
+  select(-DIA_INCR_NEG) 
+
+
+
+#### April 20 2024 ######
+
+ads_montana_q3 <- ads_merge_final %>% 
+  filter(STATECD == 30 & COUNTYCD %in% c(1, 7, 9, 23, 31, 39, 43, 57, 59, 67, 81, 93, 95, 97))
+unique(ads_montana_q3$COUNTYCD) # so counties in ads are 1, 31, 57, 59, 67, 81, 93, 97
+
+county_counts_ads <- ads_montana_q3 %>%
+  count(COUNTYCD)
+
+county_counts_ads %>%
+  kable(caption = "Counties (FIPS codes) in MONTANA with ADS identified mortality (occurrences = number of trees that died") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed", "bordered")) %>%
+  row_spec(0, bold = TRUE, color = "black") # Darken the title
+
+wbp_tree_montana_q3 <- wbp_tree %>% 
+  filter(STATECD == 30 & COUNTYCD %in% c(1, 7, 9, 23, 31, 39, 43, 57, 59, 67, 81, 93, 95, 97)) %>% 
+  filter(STATUSCD == 2 ) 
+unique(wbp_tree_montana_q3$COUNTYCD) # counties with tree mortality are: 1, 7, 9, 23, 31, 39, 43, 57, 59, 67, 81, 93, 95, 97  
+
+county_counts_fia <- wbp_tree_montana_q3 %>%
+  count(COUNTYCD)
+
+county_counts_fia %>%
+  kable(caption = "Counties (FIPS codes) in MONTANA represented with mortality from all FIA plots") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed", "bordered")) %>%
+  row_spec(0, bold = TRUE, color = "black") # Darken the title
+
+#write csv file
+write_csv(ads_merge_final, "ADS-dataexploration_files/ads_merge_final.csv") #116 unique plots but we dont have wyoming? 
 
 
 

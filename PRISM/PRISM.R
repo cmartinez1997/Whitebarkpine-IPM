@@ -3,215 +3,175 @@
 ##cecimartinez333@gmail.com
 
 
-library(prism)
-library(raster)
-library(rgdal)
+
+# load necessary packages -------------------------------------------------
+
+library(prism) # for retrieving prism data
 library(tidyverse)
-library(dplyr)
-library(ggplot2)
-library(maptools)
-library(terra)
 library(maps)
-
-
+library(terra)
+library(raster)
+library(sf)
+library(sp)
+library(dplyr)
 
 ### Getting PRISM climate data to create rasters of monthly climate variables in WBP study area ###
 
-
 #set directory for climate files
-prism_set_dl_dir("PRISM.data/")
-prism_check_dl_dir()
+prism_set_dl_dir("PRISM/data/")
 
-#get precip files from Jan 1895 to Dec 2018
+#retrieve files from PRISM website from 1895 to 2022, this step takes a long time but only do it once
+
+#get precip files 
 get_prism_monthlys(type = 'ppt', 
-                   years = 1895:2018,  
+                   years = 1895:2022,  
                    mon=1:12,
                    keepZip = TRUE)
-#get temp max files from Jan 1895 to Dec 2018
+
+#get temp max files
 get_prism_monthlys(type = 'tmax', 
-                   years = 1895:2018,  
+                   years = 1895:2022,  
                    mon=1:12, 
                    keepZip = TRUE)
 
-#get temp min files from Jan 1895 to Dec 2018
+#get temp min files 
 get_prism_monthlys(type = 'tmin', 
-                   years = 1895:2018,  
+                   years = 1895:2022,  
                    mon=1:12, 
                    keepZip = TRUE)
 
-#get mean temp files from Jan 1895 to Dec 2018
-get_prism_monthlys(type = 'tmean', 
-                   years = 1895:2018,  
+#get vpdmax files
+get_prism_monthlys(type = 'vpdmax', 
+                   years = 1895:2022,  
                    mon=1:12, 
                    keepZip = TRUE)
 
 #looking at all the files in the prism archive
 prism_archive_ls()
 
-#Stack monthly data according to data type - part of prism package
-pptStack <- pd_stack(prism_archive_subset('ppt', "monthly")) #this takes some time 
+#Stack monthly data according to data type - part of prism package, this takes a little while
+pptStack <- pd_stack(prism_archive_subset('ppt', "monthly")) 
 tmaxStack <- pd_stack(prism_archive_subset('tmax', "monthly"))
 tminStack <- pd_stack(prism_archive_subset('tmin', "monthly"))
-tmeanStack <- pd_stack(prism_archive_subset('tmean', "monthly"))
+vpdStack <- pd_stack(prism_archive_subset('vpdmax', "monthly"))
 
-###OR###
+# crop climate to extent of WBP occurrence in FIA plots: Wyoming, Montana, Idaho ### not for
 
-###if this does not work, use original script from DRM code: refer to Emily Schultz github
-###this is alternate code that can be used and relies on the raster package
+# crop climate to our study area and make spatial, we will do this for Utah
 
-#PRISM.path <-  "PRISM.data/"
-#pptFiles <- list.files(path = PRISM.path, pattern = glob2rx("*ppt*.bil"), full.names = TRUE)
-#pptFiles <- list.files(path = PRISM.path, pattern = ".*ppt.*\\.bil$", full.names = TRUE)
+clim_map <- ggplot2::map_data('state', region = c("Utah"))
+utah_spat <- vect(clim_map, geom = c("long", "lat"), crs = "+proj=longlat +datum=NAD83")
+# print(utah_spat)
 
-#tminFiles <- list.files(path = PRISM.path, pattern = glob2rx("*tmin*.bil"), full.names = TRUE)
-#tmaxFiles <- list.files(path = PRISM.path, pattern = glob2rx("*tmax*.bil"), full.names = TRUE)
-#tmeanFiles <- list.files(path = PRISM.path, pattern = glob2rx("*tmean*.bil"), full.names = TRUE)
+# do this in raster package vs terra package, one works and the other does notweird 
 
-#pptStack <- stack()
-#for (i in pptFiles) {
-#  print(i)
-#  pptStack <- stack(pptStack, raster(i))
-#}
+ut_meta_es <- read_csv("data_processed/ut_meta_ES.csv")
 
-#tminStack <- stack()
-#for (i in tminFiles) {
-#  print(i)
-#  tminStack <- stack(tminStack, raster(i))
-#}
-
-#tmaxStack <- stack()
-#for (i in tmaxFiles) {
-#  print(i)
-#  tmaxStack <- stack(tmaxStack, raster(i))
-#}
-
-### Crop climate to extent of WBP occurrence in FIA plots: Wyoming, Montana, Idaho ###
-
-# Crop climate to extent of Utah
-library(maps)
-
-clim_map <- ggplot2::map_data('state', region = c('Wyoming', 'Montana', 'Idaho'))
-wbp_spat <- SpatialPointsDataFrame(coords = cbind(clim_map$lon, clim_map$lat), 
+ut_spat <- SpatialPointsDataFrame(coords = cbind(clim_map$long, clim_map$lat), 
                                   data = clim_map, 
                                   proj4string = CRS("+proj=longlat +datum=NAD83"))
 
+es_spat <- SpatialPointsDataFrame(coords = cbind(ut_meta$LON, ut_meta$LAT), 
+                                  data = ut_meta_es, 
+                                  proj4string = CRS("+proj=longlat +datum=NAD83"))
 
-##using terra package
+cropUT <- extent(ut_spat)
 
-  wbp_spats <- vect(clim_map, 
-                    geom = c("LON", "LAT"), 
-                    crs = "+proj=longlat +datum=NAD83")
-  # Convert the SpatVector to a SpatVectorPointsDataFrame
-  # to keep associated data from the original data.frame (conds_ba)
-  wbp_spat_df <- as.points(wbp_spats)
+#cropping to extent of utah, this takes some time
+# the crop function works for the raster packlage but not the terra package
+pptStackCropped <- crop(pptStack, cropUT)
+tminStackCropped <- crop(tminStack, cropUT)
+tmaxStackCropped <- crop(tmaxStack, cropUT)
+vpdStackCropped <- crop(vpdStack, cropUT)
 
+# create an extent object to try to get terra crop function to work
+#crop_es <- terra::ext(c(-114.0472, -109.0396, 36.99588, 42.00354))
 
-crop_wbp <- extent(wbp_spat)
-pptStackCropped <- crop(pptStack, crop_wbp)
-tminStackCropped <- crop(tminStack, crop_wbp)
-tmaxStackCropped <- crop(tmaxStack, crop_wbp)
-tmeanStackCropped <- crop(tmeanStack, crop_wbp)
+# pptStackCropped <- terra::crop(pptStack, crop_es)
+# tminStackCropped <- terra::crop(tminStack, crop_es)
+# tmaxStackCropped <- terra::crop(tmaxStack, crop_es)
+# vpdStackCropped <- terra::crop(vpdStack, crop_es)
 
 ### Want a single climate value instead of several values for each data point, over the entire geographic extent of my occurrence data
 
 
-
 # Export rasters to PRISM data formatted folder
-clim.path <-  "Prism_formatted/"
-writeRaster(pptStackCropped, paste0(clim.path, "pptStack.tif"), overwrite = T)
-writeRaster(tminStackCropped, paste0(clim.path, "tminStack.tif"), overwrite = T)
-writeRaster(tmaxStackCropped, paste0(clim.path, "tmaxStack.tif"), overwrite = T)
-writeRaster(tmeanStackCropped, paste0(clim.path, "tmeanStack.tif"), overwrite = T)
+clim_path <-  "PRISM/data_formatted/"
 
-#original code from Margaret Evans to make spatial data frame 
-#margaret.ekevans@gmail.com
-#updated by Courtney Giebink
-#updated by Cecilia Martinez
-
-#load trees
-#covariate data - per_cov_final
-load("per_cov_final.Rdata")
-
-#time series data - per_cov_incr
-load("per_cov_incr_unique.Rdata")
-
-#wide format
-#one tree per row
-final_trees <- per_cov_final[per_cov_final$TRE_CN %in% per_cov_incr$TRE_CN,]
-
-# Make lat, lon data spatial
-wbp_tree_spat <- SpatialPointsDataFrame(coords = cbind(final_trees$LON, final_trees$LAT), 
-                                       data = final_trees, 
-                                       proj4string = CRS("+proj=longlat +datum=NAD83"))
-
-### Generate extracted raster files into csv files ###
-
-# Read in PRISM climate stacks, only do this if you need to reupload raster data
-
-#clim.path <-  "Prism_formatted/"
-#ppt <- stack(paste(clim.path,"pptStack.tif",sep=''))
-#tmax <- stack(paste(clim.path,"tmaxStack.tif",sep=''))
-#tmin <- stack(paste(clim.path,"tminStack.tif",sep=''))
-#tmean <- stack(paste(clim.path,"tmeanStack.tif",sep=''))
-
-# raster::extract PRISM data
-ppt.extr <- raster::extract(pptStackCropped, wbp_tree_spat[,c("LON", "LAT")]) 
-tmin.extr <- raster::extract(tminStackCropped, wbp_tree_spat[,c("LON", "LAT")])
-tmax.extr <- raster::extract(tmaxStackCropped, wbp_tree_spat[,c("LON", "LAT")])
-tmean.extr <- raster::extract(tmeanStackCropped, wbp_tree_spat[,c("LON", "LAT")])
+writeRaster(pptStackCropped, paste0(clim_path, "utah_pptStack.tif"), overwrite = T)
+writeRaster(tminStackCropped, paste0(clim_path, "utah_tminStack.tif"), overwrite = T)
+writeRaster(tmaxStackCropped, paste0(clim_path, "utah_tmaxStack.tif"), overwrite = T)
+writeRaster(vpdStackCropped, paste0(clim_path, "utah_vpdStack.tif"), overwrite = T)
 
 
-#this is a different terra function
-ppt.extr <- terra::extract(pptStackCropped, wbp_tree_spat[,c("LON", "LAT")]) 
-tmin.extr <- terra::extract(tminStackCropped, wbp_tree_spat[,c("LON", "LAT")])
-tmax.extr <- terra::extract(tmaxStackCropped, wbp_tree_spat[,c("LON", "LAT")])
-tmean.extr <- terra::extract(tmeanStackCropped, wbp_tree_spat[,c("LON", "LAT")])
+#extract PRISM data into vectors 
+ppt_extr <- terra::extract(pptStackCropped, es_spat[,c("LON", "LAT")]) 
+tmin_extr <- terra::extract(tminStackCropped, es_spat[,c("LON", "LAT")])
+tmax_extr <- terra::extract(tmaxStackCropped, es_spat[,c("LON", "LAT")])
+vpd_extr <- terra::extract(vpdStackCropped,  es_spat[,c("LON", "LAT")])
 
-# Add sensible column names for raster::extracted climate data by referencing the original climate files
+# Add sensible column names for raster extracted climate data by referencing the original climate files
 # Each row is an individual tree's data 
-ppt.extr <- as.data.frame(ppt.extr)
-tmin.extr <- as.data.frame(tmin.extr)
-tmax.extr <- as.data.frame(tmax.extr)
-tmean.extr <- as.data.frame(tmean.extr)
+ppt_extr <- as.data.frame(ppt_extr)
+tmin_extr <- as.data.frame(tmin_extr)
+tmax_extr <- as.data.frame(tmax_extr)
+vpd_extr <- as.data.frame(vpd_extr)
 
-PRISM.path <-  "PRISM.data/"
-pptFiles <- list.files(path = PRISM.path, pattern = glob2rx("*ppt*_bil"), full.names = TRUE)
+PRISM_path <-  "PRISM/data/"
+ppt_files <- list.files(path = PRISM_path, pattern = glob2rx("*ppt*_bil"), full.names = TRUE)
 #tmeanFiles <- list.files(path = PRISM.path, pattern = glob2rx("*tmean*_bil"), full.names = TRUE)
 #tmaxFiles <- list.files(path = PRISM.path, pattern = glob2rx("*tmax*_bil"), full.names = TRUE)
 #tminFiles <- list.files(path = PRISM.path, pattern = glob2rx("*tmin*_bil"), full.names = TRUE)
-colNames <- lapply(strsplit(pptFiles, "4kmM._"), function (x) x[2])
+
+colNames <- lapply(strsplit(ppt_files, "4kmM[23]_"), function(x) x[2])
 colNames <- unlist(colNames)
 colNames <- lapply(strsplit(colNames, "_"), function (x) x[1])
 colNames <- unlist(colNames)
-colnames(ppt.extr) <- paste0("ppt_", colNames)
-colnames(tmin.extr) <- paste0("tmin_", colNames)
-colnames(tmax.extr) <- paste0("tmax_", colNames)
-colnames(tmean.extr) <- paste0("tmean_", colNames)
+
+colnames(ppt_extr) <- paste0("ppt_", colNames)
+colnames(tmin_extr) <- paste0("tmin_", colNames)
+colnames(tmax_extr) <- paste0("tmax_", colNames)
+colnames(vpd_extr) <- paste0("vpd_", colNames)
+
 
 
 ## Add tre_cn, plt_cn, core_cn columns to link to other dataframes
 
-ppt.extr <- data.frame(CORE_CN = final_trees$CN, TRE_CN = final_trees$TRE_CN, PLT_CN = final_trees$PLT_CN, ppt.extr)
+ppt_df <- data.frame(LON = es_spat$LON, LAT = es_spat$LAT, ppt_extr)
+tmin_df <- data.frame(LON = es_spat$LON, LAT = es_spat$LAT, tmin_extr)
+tmax_df <- data.frame(LON = es_spat$LON, LAT = es_spat$LAT, tmax_extr)
+vpd_df <- data.frame(LON = es_spat$LON, LAT = es_spat$LAT, vpd_extr)
 
-tmin.extr <- data.frame(CORE_CN = final_trees$CN, TRE_CN = final_trees$TRE_CN, PLT_CN = final_trees$PLT_CN, tmin.extr)
 
-tmax.extr <- data.frame(CORE_CN = final_trees$CN, TRE_CN = final_trees$TRE_CN, PLT_CN = final_trees$PLT_CN, tmax.extr)
+#adding the CN, TRE_CN, PLT_CN to the climate dataframes
+ppt_df <- merge(ppt_df, ut_meta_es[, c("LON", "LAT", "CN", "TRE_CN", "PLT_CN")], by = c("LON", "LAT"))
+tmin_df <- merge(tmin_df, ut_meta_es[, c("LON", "LAT", "CN", "TRE_CN", "PLT_CN")], by = c("LON", "LAT"))
+tmax_df <- merge(tmax_df, ut_meta_es[, c("LON", "LAT", "CN", "TRE_CN", "PLT_CN")], by = c("LON", "LAT"))
+vpd_df <- merge(vpd_df, ut_meta_es[, c("LON", "LAT", "CN", "TRE_CN", "PLT_CN")], by = c("LON", "LAT"))
 
-tmean.extr <- data.frame(CORE_CN = final_trees$CN, TRE_CN = final_trees$TRE_CN, PLT_CN = final_trees$PLT_CN, tmean.extr)
+ppt_df <- ppt_df %>%
+  dplyr::select(TRE_CN, CN, PLT_CN, LON, LAT, everything()) %>%  # Moves TRE_CN, CN, PLT_CN to the front
+  rename(CORE_CN = CN)  # Renames CN to CORE_CN
+
+tmin_df <- tmin_df %>%
+  dplyr::select(TRE_CN, CN, PLT_CN, LON, LAT, everything()) %>%  # Moves TRE_CN, CN, PLT_CN to the front
+  rename(CORE_CN = CN)  # Renames CN to CORE_CN
+
+tmax_df <- tmax_df %>%
+  dplyr::select(TRE_CN, CN, PLT_CN, LON, LAT, everything()) %>%  # Moves TRE_CN, CN, PLT_CN to the front
+  rename(CORE_CN = CN)  # Renames CN to CORE_CN
+
+vpd_df <- vpd_df %>%
+  dplyr::select(TRE_CN, CN, PLT_CN, LON, LAT, everything()) %>%  # Moves TRE_CN, CN, PLT_CN to the front
+  rename(CORE_CN = CN)  # Renames CN to CORE_CN
 
 #n.tmx.extr <- as.data.frame(n.tmx.extr)
 #n.tmx.extr$TRE_CN <- val_trees$TRE_CN
 # Export climate data
-processed.path <- "Prism_formatted/"
 
-save(ppt.extr,file = "ppt_extr.Rdata")
-save(tmin.extr,file = "tmin_extr.Rdata")
-save(tmax.extr,file = "tmax_extr.Rdata")
-save(tmean.extr,file = "tmean_extr.Rdata")
-
-write.csv(ppt.extr, paste0(processed.path,"ppt_extr.csv"), row.names = F)
-write.csv(tmin.extr, paste0(processed.path,"tmin_extr.csv"), row.names = F)
-write.csv(tmax.extr, paste0(processed.path,"tmax_extr.csv"), row.names = F)
-write.csv(tmean.extr, paste0(processed.path,"tmean_extr.csv"), row.names = F)
+write_csv(ppt_df, "PRISM/data_formatted/utah_ppt_df.csv")
+write_csv(tmin_df, "PRISM/data_formatted/utah_tmin_df.csv")
+write_csv(tmax_df, "PRISM/data_formatted/utah_tmax_df.csv")
+write_csv(vpd_df, "PRISM/data_formatted/utah_vpd_df.csv")
 
 

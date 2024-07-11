@@ -8,11 +8,9 @@
 
 # Load necessary packages -------------------------------------------------
 
-library(sp)
 library(ggplot2)
 library(wesanderson)
 library(tidyverse)
-library(maps)
 
 
 # Read in and process surviva data ------------------------------------------------

@@ -1,0 +1,32 @@
+---
+title: "WBP_Crossdating"
+format: 
+  html: 
+    code-fold: true
+editor: visual
+---
+
+## WBP Crossdating in the Interior West from fdsa cores
+
+The United States Forest Service Forest Inventory and Analysis Program Tree-Ring network for Whitebark Pine in Montana, Idaho Wyoming
+
+## Montana (30): Flathead County (29) - Northern Montana
+
+```{r}da}
+#| label: load-packages
+#| include: false
+
+library(tidyverse)
+library(here)
+
+
+```
+
+Load in the data for flathead county, both metadata and ringwidth data. Note that at this point, the ring width data are those sent from USU lab and are not the remeasured data
+
+```{r}
+
+mt_rw_flathead <- ("data_processed/mt_rw_flathead.csv")
+mt_meta_flathead <- ("data_processed/mt_meta_flathead_fiadb.csv")
+
+```
