@@ -1,0 +1,218 @@
+---
+title: "whitebarkpine_esa"
+format: html
+editor: visual
+---
+
+# Exploring whitebark pine in FIA dataframe
+
+```{r}
+#| echo: TRUE
+#| message: FALSE
+#| warning: FALSE
+
+
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(tigris)
+library(leaflet)
+library(sf)
+library(basemaps)
+
+
+theme_set(theme_bw())
+
+
+
+```
+
+# Whitebark pine for Montana, Idaho, and Wyoming
+
+SPCD = 101 STATECD = 16, 30, 56
+
+```{r}
+
+whitebarkpine_all <- read_csv("data_processed/TIME_whitebark_pine.csv")
+whitebarkpine_all$PLT_CN <- as.character(whitebarkpine_all$PLT_CN)
+whitebarkpine_all$TREE_CN <- as.character(whitebarkpine_all$TREE_CN)
+
+knitr::kable(head(whitebarkpine_all))
+
+
+```
+
+**We have a total of 28,385 identified whitebark pine trees from the annual inventory period from MT, ID, WY**
+
+## How many trees have been surveyed how many times in each state?
+
+```{r}
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+whitebark_pine_measures <- whitebarkpine_all |> 
+  group_by(STATECD, TREE_COMPOSITE_ID) |>
+  summarize(n = length(unique(INVYR))) 
+
+
+knitr::kable(whitebark_pine_measures |>
+               group_by(STATECD, n) |>
+               tally() |>
+               rename(n_measures = n,
+                      n_trees = nn))
+
+
+```
+
+**Notably, zero trees in Wyoming (STATECD = 56) have been surveyed more than one time.**
+
+## Filter dataframe to only include remeasured plots so we can look at mortality
+
+```{r}
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+whitebark_pine_repeats <- filter(whitebark_pine_measures, n > 1) |>
+  left_join(whitebarkpine_all)
+
+whitebark_pine_repeats <- whitebark_pine_repeats %>% 
+  relocate(STATECD, TREE_COMPOSITE_ID, INVYR, CYCLE, MEASYEAR, STATUSCD, DIA)
+
+
+length(unique(whitebark_pine_repeats$TREE_COMPOSITE_ID))
+
+
+
+```
+
+This filters our search down to 8,147 trees that can be tracked from the annual inventory period through time (check back in on this when FIAdb has been updated - most recent update occurred June 28th, 2024 - talk to Renata about this)
+
+# Identify the trees that were alive at one point and then died
+
+```{r}
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+#| 
+# Filter trees that died
+dead_trees <- whitebark_pine_repeats %>%
+  group_by(TREE_COMPOSITE_ID) %>%
+  filter(any(STATUSCD == 2) & any(STATUSCD == 1)) %>%
+  ungroup()
+
+# Extract the DIA values when trees were alive so we can plot death as a function of the state variable (size)
+alive_dia <- dead_trees %>%
+  filter(STATUSCD == 1) %>%
+  select(TREE_COMPOSITE_ID, DIA)
+
+# Filter trees that survived - last status is alive 
+survived_trees <- whitebark_pine_repeats %>%
+  group_by(TREE_COMPOSITE_ID) %>%
+  filter(STATUSCD == 1) %>%
+  ungroup()
+
+length(unique(alive_dia$TREE_COMPOSITE_ID)) # 1,904 trees died
+length(unique(survived_trees$TREE_COMPOSITE_ID)) # 4,960 trees survived
+
+
+# Find the mean DIA of all the remeasured trees
+mean_dia_all <- mean(whitebark_pine_repeats$DIA, na.rm = TRUE)
+mean_dead_trees <- mean(alive_dia$DIA)
+
+# Find the max INVY
+max(whitebark_pine_repeats$INVYR)
+min(whitebark_pine_repeats$INVYR)
+
+# Plot histogram 
+ggplot() +
+  geom_histogram(data = survived_trees, aes(x = DIA, fill = "Survived"), binwidth = 1, color = "white", alpha = 0.5, position = "identity") + 
+  geom_histogram(data = alive_dia, aes(x = DIA, fill = "Died"), binwidth = 1, color = "white", alpha = 0.6, position = "identity") +
+  labs(title = "Whitebark pine mortality and survival from 2003-2019",
+       x = "Diameter (in.)",
+       y = "Number of trees", 
+       fill = "Tree Status") +
+  geom_vline(aes(xintercept = mean_dead_trees), color = "red", linetype = "dashed") + 
+  geom_vline(aes(xintercept = mean_dia_all), color = "black", linetype = "dashed") + 
+  theme_minimal() + 
+  scale_fill_manual(values = c("Died" = "#006699", "Survived" = "#9999FF"))
+
+```
+
+So 1,904 whitebark pine trees that were alive had died from the annual inventory cycle from MT and ID (note - does not include Wyoming)
+
+Mean DIA of dead trees is 8.922 in Mean DIA of all the trees is 8.767 in The mean for value for the trees that died is higher than the mean value for all the trees pooled that lived and died
+
+27.7% of whitebark pine trees died from 2003-2019
+
+# Mapping out the trees onto the landscape for which we have remeasurement data and tree ring data - for ESA
+
+
+```{r}
+
+whitebark_pine_map <- whitebark_pine_repeats %>% 
+  select(TREE_COMPOSITE_ID, LAT, LON, STATECD, INVYR) %>% 
+  group_by(TREE_COMPOSITE_ID, LAT, LON, STATECD) %>% 
+  summarize(NYEARS = as.factor(length(unique(INVYR)))) %>% 
+  mutate(STATECD = as.factor(STATECD)) %>% 
+  ungroup()
+
+wbp_states <- tigris::states() %>% 
+  filter(STATEFP %in% c("16", "56", "30"))
+
+# get the extent of the states
+bbox <- st_bbox(wbp_states)
+
+# view all available maps
+get_maptypes()
+
+# set defaults for the basemap
+set_defaults(map_service = "esri", map_type = "usa_topo_maps")
+
+# MAKE SURE TO FOLLOW THIS
+# or, when combined with an sf vector object,
+# make sure to use Web/Pseudo Mercator (EPSG 3857), as this is
+# the CRS in which all basemaps are returned (see "Value"):
+
+bbox <- st_transform(wbp_states, crs = st_crs(3857))
+
+ggplot(wbp_states) +
+  basemap_gglayer(bbox) + 
+  geom_sf() +
+  geom_jitter(data = whitebark_pine_map, aes(LON, LAT, color = STATECD)) +
+  ggtitle("Remeasured WBP") +
+  scale_color_brewer(palette = "YlGnBu") +
+  theme_bw()
+
+
+
+
+ggplot() + 
+  basemap_gglayer(bbox) 
+  # geom_sf(data = wbp_states, fill = "lightgray", color = "black", inherit.aes = FALSE) +
+  # geom_jitter(data = whitebark_pine_map, aes(x = LON, y = LAT, color = STATECD), size = 2) +
+  # scale_color_brewer(palette = "YlGnBu") +
+  # ggtitle("Remeasured WBP") +
+  # theme_bw()
+
+# or as ggplot2 layer:
+library(ggplot2)
+ggplot() +
+basemap_gglayer(ext) +
+scale_fill_identity() +
+coord_sf()
+# or, when combined with an sf vector object,
+# make sure to use Web/Pseudo Mercator (EPSG 3857), as this is
+# the CRS in which all basemaps are returned (see "Value"):
+library(sf)
+ext <- st_transform(ext, crs = st_crs(3857))
+ggplot() +
+basemap_gglayer(ext) +
+geom_sf(data = ext, color = "red", fill = "transparent") +
+coord_sf() +
+scale_fill_identity()
+
+
+
+```

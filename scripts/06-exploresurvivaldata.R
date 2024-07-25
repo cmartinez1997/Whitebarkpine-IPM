@@ -29,7 +29,7 @@ barplot(wbp_survival1,
         ylab = "Survival Probability")
 
 # survival probability ranges from 0.2307 in 2010, to 0.5652 in 2011, but note that sample size is much lower in 2011 than in previous years
-surv_table2 <- table(wbp_survive_df[, c("MEASYEAR", "STATUSCD")])
+surv_table2 <- table(wbp_survival[, c("MEASYEAR", "STATUSCD")])
 wbp_survival2 <- surv_table2[,1]/(surv_table2[,1]+surv_table2[,2]) # calculates survival probability from the 2nd census within population 
 barplot(wbp_survival2, 
         names.arg = names(wbp_survival2), 

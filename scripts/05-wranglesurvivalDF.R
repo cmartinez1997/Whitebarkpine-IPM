@@ -45,11 +45,15 @@ surv_dat_final_df <- surv_dat_final %>%
   mutate(ELEV = plot_iw$ELEV[match(surv_dat_final$PLT_CN, plot_iw$CN)]) %>% 
   mutate(MEASYEAR = plot_iw$MEASYEAR[match(surv_dat_final$PLT_CN, plot_iw$CN)]) %>% 
   mutate(PREV_MEASYEAR = plot_iw$MEASYEAR[match(surv_dat_final$PREV_PLT_CN, plot_iw$CN)]) %>% 
-  mutate(CENSUS_INTERVAL = MEASYEAR - PREV_MEASYEAR)
+  mutate(ELEV = plot_iw$ELEV[match(surv_dat_final$PLT_CN, plot_iw$CN)]) %>% 
+  mutate(REMEAS_PERIOD = plot_iw$REMPER[match(surv_dat_final$PLT_CN, plot_iw$CN)])
 
 options(scipen = 999) #gets rid of scientific notation
 
-# look up previous (tree-specific) condition-level BALIVE(Basal area in square feet per acre of all live trees) 
+
+
+# look up previous (tree-specific) condition-level BALIVE(Basal area in square feet per acre of all live trees) to add to dataframe, from t = 1
+
 cond_iw <- read_csv("data_processed/COND_MT-ID-WY.csv") %>% 
   filter(COND_STATUS_CD == 1) # "accessible forest land" by FIA classification, go from 98,000 to 26,905
 
@@ -86,6 +90,33 @@ surv_dat_final_df$DSTRBCD3 <- apply(X = surv_dat_final_df[, c("PREV_PLT_CN", "PR
                                       },
                                       conds.df = cond_iw)
 
+## do this for disturbance years as well
+
+surv_dat_final_df$DSTRBYR1 <- apply(X = surv_dat_final_df[, c("PREV_PLT_CN", "PREV_CONDID")], 
+                                    MARGIN = 1, # applies function to each row in grData_remeas
+                                                                FUN = function(x, conds.df) {
+                                      conds.df$DSTRBYR1[conds.df$PLT_CN %in% x["PREV_PLT_CN"] &
+                                                          conds.df$CONDID %in% x["PREV_CONDID"]]
+                                    },
+                                    conds.df = cond_iw)
+
+surv_dat_final_df$DSTRBYR2 <- apply(X = surv_dat_final_df[, c("PREV_PLT_CN", "PREV_CONDID")], 
+                                    MARGIN = 1, # applies function to each row in grData_remeas
+                                    FUN = function(x, conds.df) {
+                                      conds.df$DSTRBYR2[conds.df$PLT_CN %in% x["PREV_PLT_CN"] &
+                                                          conds.df$CONDID %in% x["PREV_CONDID"]]
+                                    },
+                                    conds.df = cond_iw)
+
+surv_dat_final_df$DSTRBYR3 <- apply(X = surv_dat_final_df[, c("PREV_PLT_CN", "PREV_CONDID")], 
+                                    MARGIN = 1, # applies function to each row in grData_remeas
+                                    FUN = function(x, conds.df) {
+                                      conds.df$DSTRBYR3[conds.df$PLT_CN %in% x["PREV_PLT_CN"] &
+                                                          conds.df$CONDID %in% x["PREV_CONDID"]]
+                                    },
+                                    conds.df = cond_iw)
+
+
 # look to see what Disturbance codes exist in df, all disturbance codes are NA
 unique_values <- surv_dat_final_df %>%
   distinct(DSTRBCD1, DSTRBCD2, DSTRBCD3) %>%
@@ -115,4 +146,5 @@ surv_dat_final_df$DIA_DIFF <- surv_dat_final_df$DIA - surv_dat_final_df$PREVDIA 
 
 # Create output data frame and write to csv
 write_csv(surv_dat_final_df, "data_processed/WBP_surv.csv")
+
 
