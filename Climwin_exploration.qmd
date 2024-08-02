@@ -1,0 +1,309 @@
+---
+title: "Climwin exploration"
+format: html
+editor: visual
+---
+
+## Exploration of Climwin package
+
+load packages
+```{r}
+#| echo: TRUE
+#| message: FALSE
+#| warning: FALSE
+
+
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(tigris)
+library(leaflet)
+library(sf)
+library(basemaps)
+library(sf)
+library(ggspatial)  
+library(grid)    
+library(patchwork)
+library(dplR)
+library(climwin)
+
+
+theme_set(theme_bw())
+
+
+
+```
+
+#Reading in and detrending rwl data
+
+loading in data
+
+```{r}
+
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+
+# read in tree ring data
+tree_ring_dat <- read_csv("data_processed/wbp_rw.csv")
+head(tree_ring_dat)
+
+tree_ring_dat$CN <- as.character(tree_ring_dat$CN)
+tree_ring_dat$PLT_CN <- as.character(tree_ring_dat$PLT_CN)
+tree_ring_dat$TRE_CN <- as.character(tree_ring_dat$TRE_CN)
+
+
+#only keep trees where verified = y
+tree_ring_usable <- tree_ring_dat %>% 
+  filter(VERIFY == "y")
+
+length(unique(tree_ring_usable$CN)) # there are 41 unique series 
+
+#map out these series quickly 
+
+tree_ring_map <- tree_ring_usable %>% 
+  select(c(CN, LAT, LON, STATECD))
+
+tree_ring_sf <- st_as_sf(tree_ring_map, coords = c("LON", "LAT"), crs = 4326)
+
+states <- states(cb = TRUE) %>% filter(STUSPS %in% c("MT", "ID", "WY"))
+
+# Plot the map with ggplot2
+ggplot() +
+  geom_sf(data = states, fill = "white", color = "black") +
+  geom_sf(data = tree_ring_sf, aes(color = as.factor(STATECD)), size = 2) +
+  theme_minimal() +
+  labs(title = "Tree Ring Locations",
+       subtitle = "Verified samples",
+       color = "State Code")
+
+
+
+
+```
+
+# okay now detrend series with a cubic smoothing spline and then make a chronology 
+
+Focusing in specifically on Wyoming 
+
+```{r}
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+
+#create ring width dataframe (rwl) for dplR
+
+
+rw_data_WY <- tree_ring_usable %>%
+  filter(STATECD == 56) %>%
+  ungroup() %>%
+  dplyr::select(TRE_CN, Year, RW)
+rw_data_WY <- spread(rw_data_WY,key = "TRE_CN",value = RW,fill = NA,drop = FALSE) #pivot_wider?
+rw_data_WY <- as.data.frame(rw_data_WY)
+years <- rw_data_WY$Year
+rw_data_WY <- rw_data_WY %>%
+  dplyr::select(-Year)
+rownames(rw_data_WY) <- years
+colnames(rw_data_WY) <- paste("SER", colnames(rw_data_WY), sep = "_")
+
+
+#explore dataframe in dplR
+rwl.report(rw_data_WY) #descriptive statistics
+rw_stats_WY <- rwl.stats(rw_data_WY)
+head(rw_stats_WY)
+
+
+
+```
+
+get climate data 
+
+```{r}
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+
+# read in climate  data
+climate_dat_WY <- read_csv("data_processed/climate_data_all.csv")
+head(climate_dat_WY)
+climate_dat_WY$PLT_CN <- as.character(climate_dat_WY$PLT_CN)
+
+# tree ring 
+dat_WY <- tree_ring_usable %>%
+  filter(STATECD == 56) %>% 
+  dplyr::select(TRE_CN, PLT_CN, Year, RW)
+
+# filter 
+climate_dat_WY <- climate_dat_WY[climate_dat_WY$PLT_CN %in% dat_WY$PLT_CN, ] 
+climate_dat_WY$PLT_CN <- as.character(climate_dat_WY$PLT_CN)
+climate_dat_WY <- climate_dat_WY %>% 
+  filter(year > 1895)
+
+
+tmax_WY <- climate_dat_WY %>%
+  dplyr::select(year, contains("tmax")) %>%
+  pivot_longer(-year,names_to = "var1",values_to = "tmax")
+
+tmean_WY <- climate_dat_WY %>%
+  dplyr::select(year, contains("tmin")) %>%
+  pivot_longer(-year,names_to = "var2",values_to = "tmin")%>%
+  mutate(tmax = tmax_WY$tmax) %>%
+  rowwise() %>%
+  mutate(temp = mean(c(tmax,tmin)))
+
+
+ppt_WY <- climate_dat_WY %>%
+  dplyr::select(year, contains("ppt")) %>%
+  pivot_longer(-year,names_to = "var",values_to = "ppt") %>%
+  mutate(month = rep(1:12,times = 3198)) %>% #1895-2000
+  dplyr::select(year,month,ppt)
+
+clim_WY <- ppt_WY %>%
+  mutate(temp = tmean_WY$tempmean)
+
+
+#subset ring width data to correlate with climate
+
+dat_WY_df <- dat_WY %>% 
+  ungroup() %>%
+  dplyr::select(TRE_CN, Year, RW)
+dat_WY_df <- spread(dat_WY_df,key = "TRE_CN",value = RW,fill = NA,drop = FALSE) #pivot_wider?
+dat_WY_df <- as.data.frame(dat_WY_df)
+years <- dat_WY_df$Year
+dat_WY_df <- dat_WY_df %>%
+  dplyr::select(-Year)
+rownames(dat_WY_df) <- years
+colnames(dat_WY_df) <- paste("SER", colnames(dat_WY_df), sep = "_")
+
+rwi_WY <- detrend(rwl = dat_WY_df, 
+                      method = "Spline", nyrs = 30)
+rwi.stats(rwi_WY)
+rw_crn_WY <- chron(rwi_WY, prefix = "CAM")
+plot(rw_crn_WY)
+
+
+
+
+
+```
+
+climate for climwin
+```{r}
+# adding new column of tempmean
+if (!"tempmean" %in% names(climate_dat_WY)) {
+  climate_dat_WY <- climate_dat_WY %>%
+    rowwise() %>%
+    mutate(tempmean = mean(c(tmax, tmin), na.rm = TRUE)) %>%
+    ungroup()
+}
+
+# aggregate to a larger spatial area for the analysis
+WY_climate_data <- climate_dat_WY %>%
+  group_by(year, month) %>%
+  summarise(
+    tmin = mean(tmin, na.rm = TRUE),
+    tmax = mean(tmax, na.rm = TRUE),
+    ppt = mean(ppt, na.rm = TRUE),
+    meantemp = mean(tempmean, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+
+```
+
+Using climwin package
+
+```{r}
+ # cinvert ring width data frame to appropriate climwin format 
+tree_ring_crn <- rw_crn_WY %>%
+  mutate(year = as.numeric(row.names(rw_crn_WY))) %>%
+  select(year, everything()) %>% 
+  filter(year > 1897)
+
+# add the arbitrary month and day
+tree_ring_crn <- tree_ring_crn %>%
+  mutate(
+    month = 6,
+    day = 15,
+    Date = as.Date(paste(year, month, day, sep = "-"))
+  )
+
+# Convert the climate data to the appropriate format for climwin
+climate_dat_df <- WY_climate_data %>%
+  mutate(Date = as.Date(paste(year, month, "01", sep = "-")))
+
+
+# Define the response and climate data
+response <- tree_ring_crn
+climate <- climate_dat_df
+reference_date <- c(30, 8) 
+
+# Define the response and climate variable
+response_var <- "std"  
+climate_vars <- c("tmax", "tmin","meantemp", "ppt")
+
+
+# Run the sliding window analysis
+climwin_results <- slidingwin(
+  xvar =list(tmax = climate$tmax, 
+                                    # dtr = Clim$dtr, 
+                                    # frs = Clim$frs,# removed wet because model failed to converge 
+                                    tmin = climate$tmin, 
+                                    ppt = climate$ppt, 
+                                    meantemp = climate$meantemp),
+  cinterval = "month",
+  cdate = climate$Date,
+  bdate = response$Date,
+  baseline = lm(response[[response_var]] ~ 1, data = response),
+  type = "absolute",
+  refday = reference_date,
+  range = c(12, 0),  # Specify the range of months to include in the analysis
+  stat = "mean",
+  func = c("lin", "quad"),
+  cmissing = FALSE)
+
+# View the results
+summary(climwin_results)
+
+
+best_mod_first_step <- which.min(climwin_results$combos$DeltaAICc)
+climwin_results$combos[best_mod_first_step,]
+climwin_results[[best_mod_first_step]][[1]]
+
+baseline_model <- lm(response[[response_var]] ~ 1, data = response)
+window_range <- c(12, 0)  # Range of windows to be included in the analysis
+
+
+# randomized1 <- randwin(repeats = 50,     
+#                        baseline = baseline_model,
+#                        xvar = list(climate[,as.character(climwin_results$combos$climate[best_mod_first_step])]),
+#                        type = climwin_results$combos$type[best_mod_first_step], 
+#                        range = window_range,
+#                        stat = climwin_results$combos$stat[best_mod_first_step],
+#                        func = climwin_results$combos$func[best_mod_first_step],
+#                        refday = reference_date,
+#                        cinterval = "month",
+#                        cdate = climate$Date, bdate = response$Date,
+#                        window= "sliding")
+
+
+output <- climwin_results
+# pvalue(datasetrand = randomized1[[1]], dataset = output[[best_mod_first_step]]$Dataset, metric = "AIC", sample.size = nrow(Biol))
+
+
+climwin_plot <- plotall(datasetrand = NULL,
+        dataset = output[[best_mod_first_step]]$Dataset, 
+        bestmodel = output[[best_mod_first_step]]$BestModel,
+        bestmodeldata = output[[best_mod_first_step]]$BestModelData,
+        title=paste((data.frame(lapply(output$combos[best_mod_first_step,], as.character), stringsAsFactors=FALSE)), collapse = "_"))
+
+ggsave("climwin.png", climwin_plot, width = 10, height = 6 )
+# Identify dates in climate that are not in response
+
+
+
+```
+

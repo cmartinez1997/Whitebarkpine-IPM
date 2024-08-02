@@ -23,12 +23,19 @@ ID_cond <- read_csv("data_raw/ID_COND.csv")
 WY_tree_old <- read_csv("data_raw/WY_TREE.csv")
 WY_plot_old <- read_csv("data_raw/WY_PLOT.csv")
 WY_cond_old <- read_csv("data_raw/WY_COND.csv")
+max(WY_tree_old$INVYR)
+
+# look to see if any trees in wy are still remeasured
+wy_tree_remeasured <- WY_tree_old %>%
+  filter(!is.na(PREVDIA)) #8380 trees that were revisited/remeasured, note none it Wyominggre (talk to John Shaw)
 
   
 WY_tree <- read_csv("data_raw/WY_update_TREE.csv")
 WY_plot <- read_csv("data_raw/WY_update_PLOT.csv")
 WY_cond <- read_csv("data_raw/WY_update_COND.csv")
-
+max(WY_tree$INVYR)
+wy_tree_remeasured <- WY_tree %>%
+  filter(!is.na(PREVDIA)) # okay there are less fields/attri utes in this table than in the old one, but still no remeasured trees
 
 # Wrangle data ------------------------------------------------------------
 
@@ -40,7 +47,7 @@ str(plot_MT_ID_WY)
 write_csv(plot_MT_ID_WY, "data_processed/PLOT_MT-ID-WY.csv")
 
 # combining tree data tables from MT, ID, WY and save 
-tree_MT_ID_WY <- bind_rows(MT_tree, ID_tree, WY_tree)
+tree_MT_ID_WY <- bind_rows(MT_tree, ID_tree, WY_tree_old)
 str(tree_MT_ID_WY)
 write_csv(tree_MT_ID_WY, "data_processed/TREE_MT-ID-WY.csv")
 

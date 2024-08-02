@@ -69,38 +69,38 @@ unique_values <- wbp_surv_dat2 %>%
 # remove conditions where fire or harvest occurred, what about insect damage for mortality analysis? ask Margaret about this
 wbp_surv_dat3 <- wbp_surv_dat2 %>%
   filter(if_all(c(DSTRBCD1, DSTRBCD2, DSTRBCD3), ~ !(. %in% c(10, 12, 20, 22, 30, 31, 32, 80))))
-  # goes down to 5,574 observations
+  
+# goes down to 5,574 observations
 
 # standardize covariates, center and scale
 wbp_surv_dat_scaled <- wbp_surv_dat %>% mutate_at(scale, .vars = vars(-TRE_CN, -PREV_TRE_CN, -PLT_CN, -PREV_PLT_CN, -SPCD, -STATECD, -UNITCD, -INVYR, 
                                                                       -COUNTYCD, -PLOT, -SUBP, -TREE, -CONDID, -PREVCOND, -PREV_CONDID, 
                                                                       -STATUSCD, -MEASYEAR, -PREV_MEASYEAR, 
-                                                                      -CENSUS_INTERVAL,
+                                                                      -REMEAS_PERIOD,
                                                                       AGENTCD, DSTRBCD1, DSTRBCD2, DSTRBCD3,
-                                                                      -DIA_INCR_NEG,
-                                                                      -surv, -mortt))
+                                                                
+                                                                      -surv, -mort))
 
 wbp_surv_dat2_scaled <- wbp_surv_dat2 %>% mutate_at(scale, .vars = vars(-TRE_CN, -PREV_TRE_CN, -PLT_CN, -PREV_PLT_CN, -SPCD, -STATECD, -UNITCD, -INVYR, 
                                                                         -COUNTYCD, -PLOT, -SUBP, -TREE, -CONDID, -PREVCOND, -PREV_CONDID, 
                                                                         -STATUSCD, -MEASYEAR, -PREV_MEASYEAR, 
-                                                                        -CENSUS_INTERVAL,
+                                                                        -REMEAS_PERIOD,
                                                                         AGENTCD, DSTRBCD1, DSTRBCD2, DSTRBCD3,
-                                                                        -DIA_INCR_NEG,
+                                                                        
                                                                         -surv, -mort))
 
 wbp_surv_dat3_scaled <- wbp_surv_dat3 %>% mutate_at(scale, .vars = vars(-TRE_CN, -PREV_TRE_CN, -PLT_CN, -PREV_PLT_CN, -SPCD, -STATECD, -UNITCD, -INVYR, 
                                                                  -COUNTYCD, -PLOT, -SUBP, -TREE, -CONDID, -PREVCOND, -PREV_CONDID, 
                                                                  -STATUSCD, -MEASYEAR, -PREV_MEASYEAR, 
-                                                                 -CENSUS_INTERVAL,
+                                                                 -REMEAS_PERIOD,
                                                                  AGENTCD, DSTRBCD1, DSTRBCD2, DSTRBCD3,
-                                                                 -DIA_INCR_NEG,
                                                                  -surv, -mort))
 
 
 # now run models ----------------------------------------------------------
 
 # run first survival model
-surv_model1 <- glmer(mort ~ PREVDIA + I(PREVDIA^2) + BALIVE + (1|PLT_CN) + offset(log(CENSUS_INTERVAL)), 
+surv_model1 <- glmer(mort ~ PREVDIA + I(PREVDIA^2) + BALIVE + (1|PLT_CN) + offset(log(REMEAS_PERIOD)), 
                    family = binomial(link = "cloglog"), data = wbp_surv_dat3_scaled,
                    control=glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=10000)))
 
@@ -119,11 +119,11 @@ plotResiduals(survData.scaled$PREVDIA, res$scaledResiduals, quantreg = T, main =
 
 
 #Demonstrate the effect of quadratics
-surv_model2 <- glmer(mort ~ PREVDIA + BALIVE + (1|PLT_CN) + offset(log(CENSUS_INTERVAL)), 
+surv_model2 <- glmer(mort ~ PREVDIA + BALIVE + (1|PLT_CN) + offset(log(REMEAS_PERIOD)), 
                     family = binomial(link = "cloglog"), data = wbp_surv_dat3_scaled,
                     control=glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=10000)))
 surv_model3 <- glmer(mort ~ PREVDIA + BALIVE + 
-                    I(PREVDIA^2) + I(BALIVE^2) + (1|PLT_CN) + offset(log(CENSUS_INTERVAL)), 
+                    I(PREVDIA^2) + I(BALIVE^2) + (1|PLT_CN) + offset(log(REMEAS_PERIOD)), 
                   family = binomial(link = "cloglog"), data = wbp_surv_dat3_scaled,
                   control=glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=10000)))
 #model selection

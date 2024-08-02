@@ -167,7 +167,7 @@ north_arrow <- htmltools::HTML('<div style="position: absolute; top: 10px; left:
                                 </div>')
 
 # Start a leaflet map
-no <- leaflet() %>% 
+wbp_map <- leaflet() %>% 
   addProviderTiles(providers$Esri.WorldTopoMap) %>%  # adding topo basemap
   setView(lng = mean(st_coordinates(treering_points_leaflet)[,1]), lat = mean(st_coordinates(treering_points_leaflet)[,2]), zoom = 6) %>%  # set the initial view
   # for the range map 
@@ -195,7 +195,7 @@ no <- leaflet() %>%
                    fillOpacity = 0.6) %>% 
   addCircles(data = treering_points_leaflet,
              radius = 2,
-             color = "#F1C40F",  # Ensuring both color and fillColor are set
+             color = "#DC4D01",  # Ensuring both color and fillColor are set
              fillOpacity = 1) %>%
  
   
@@ -203,7 +203,7 @@ no <- leaflet() %>%
   addMiniMap(
              toggleDisplay = TRUE,
              position = "topright",
-             width = 200, height = 200,
+             width = 100, height = 100,
              zoomLevelOffset = -3.5) %>% 
   addScaleBar("bottomright") %>% 
 # adding a legend
@@ -214,17 +214,14 @@ no <- leaflet() %>%
                                        </svg> WBP Range"),
                        htmltools::HTML("<svg width='10' height='10'>
                                          <circle cx='5' cy='5' r='5' style='fill:#1F618D;'/>
-                                       </svg> WBP FIA census data"),
+                                       </svg> WBP FIA remeasurement data"),
                        htmltools::HTML("<svg width='10' height='10'>
-                                         <circle cx='5' cy='5' r='5' style='fill:#F1C40F;'/>
+                                         <circle cx='5' cy='5' r='5' style='fill:#DC4D01;'/>
                                        </svg> WBP tree-ring data"), 
                        htmltools::HTML("<svg width='20' height='10'>
                                          <line x1='0' y1='5' x2='20' y2='5' style='stroke:black;stroke-width:2'/>
                                        </svg> State Boundaries")), 
-            opacity = 0.6) %>% 
-  addControl(north_arrow, position = "bottomright", className = "north-arrow")
-
-addNorth
+            opacity = 0.6)
 
 
   # addLegend(position = "bottomright",
@@ -232,9 +229,6 @@ addNorth
   #           labels = c("Species Range", "Whitebark Pine FIA data", "Whitebark Pine tree-ring data"),
   #           opacity = 0.5)
 
-mortality_hist
-
-ggsave("mortality_hist.png", mortality_hist, width = 10, height = 6)
 
 
 mapshot(main_map, file = 'wbp_map.png')
