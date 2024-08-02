@@ -19,6 +19,10 @@ library(tigris)
 library(leaflet)
 library(sf)
 library(basemaps)
+library(sf)
+library(ggspatial)  
+library(grid)    
+library(patchwork)
 
 
 theme_set(theme_bw())
@@ -33,9 +37,14 @@ SPCD = 101 STATECD = 16, 30, 56
 
 ```{r}
 
-whitebarkpine_all <- read_csv("data_processed/TIME_whitebark_pine.csv")
+whitebarkpine_all <- read_csv("data_processed/final_whitebark_pine.csv")
+
+
+
 whitebarkpine_all$PLT_CN <- as.character(whitebarkpine_all$PLT_CN)
 whitebarkpine_all$TREE_CN <- as.character(whitebarkpine_all$TREE_CN)
+whitebarkpine_all$COND_CN <- as.character(whitebarkpine_all$COND_CN)
+
 
 knitr::kable(head(whitebarkpine_all))
 
@@ -74,12 +83,13 @@ knitr::kable(whitebark_pine_measures |>
 #| message: FALSE
 #| warning: FALSE
 
+
 whitebark_pine_repeats <- filter(whitebark_pine_measures, n > 1) |>
   left_join(whitebarkpine_all)
 
-whitebark_pine_repeats <- whitebark_pine_repeats %>% 
-  relocate(STATECD, TREE_COMPOSITE_ID, INVYR, CYCLE, MEASYEAR, STATUSCD, DIA)
 
+whitebark_pine_repeats <- whitebark_pine_repeats %>% 
+  relocate(STATECD, TPA_UNADJ, TREE_COMPOSITE_ID, INVYR, CYCLE, MEASYEAR, STATUSCD, DIA)
 
 length(unique(whitebark_pine_repeats$TREE_COMPOSITE_ID))
 
@@ -87,7 +97,7 @@ length(unique(whitebark_pine_repeats$TREE_COMPOSITE_ID))
 
 ```
 
-This filters our search down to 8,147 trees that can be tracked from the annual inventory period through time (check back in on this when FIAdb has been updated - most recent update occurred June 28th, 2024 - talk to Renata about this)
+This filters our search down to 8,147 trees that can be tracked from the annual inventory period through time (check back in on this when FIAdb has been updated - most recent update occurred June 28th, 2024 - talk to Renata about updating the database)
 
 # Identify the trees that were alive at one point and then died
 
@@ -116,7 +126,6 @@ survived_trees <- whitebark_pine_repeats %>%
 length(unique(alive_dia$TREE_COMPOSITE_ID)) # 1,904 trees died
 length(unique(survived_trees$TREE_COMPOSITE_ID)) # 4,960 trees survived
 
-
 # Find the mean DIA of all the remeasured trees
 mean_dia_all <- mean(whitebark_pine_repeats$DIA, na.rm = TRUE)
 mean_dead_trees <- mean(alive_dia$DIA)
@@ -129,7 +138,7 @@ min(whitebark_pine_repeats$INVYR)
 ggplot() +
   geom_histogram(data = survived_trees, aes(x = DIA, fill = "Survived"), binwidth = 1, color = "white", alpha = 0.5, position = "identity") + 
   geom_histogram(data = alive_dia, aes(x = DIA, fill = "Died"), binwidth = 1, color = "white", alpha = 0.6, position = "identity") +
-  labs(title = "Whitebark pine mortality and survival from 2003-2019",
+  labs(title = "Whitebark pine mortality and survival of remeasured trees from 2003-2019",
        x = "Diameter (in.)",
        y = "Number of trees", 
        fill = "Tree Status") +
@@ -137,6 +146,8 @@ ggplot() +
   geom_vline(aes(xintercept = mean_dia_all), color = "black", linetype = "dashed") + 
   theme_minimal() + 
   scale_fill_manual(values = c("Died" = "#006699", "Survived" = "#9999FF"))
+
+##need to incorporate expansion factor
 
 ```
 
@@ -146,73 +157,378 @@ Mean DIA of dead trees is 8.922 in Mean DIA of all the trees is 8.767 in The mea
 
 27.7% of whitebark pine trees died from 2003-2019
 
+Need to include expansion factor for trees on microplots to scale up to the plot level 
+
+# Making Fitts (see: Fitts et al. 2021) type tables for individual trees, mortality agents vs disturbance codes for whitebark pine --> compounded disturbances vs. simple disturbances 
+
+## First we have to deal with the expansion factor on microplots which applies to individuals with an expansion factor of 74.965282
+
+```{r}
+
+whitebark_pine_microplot <- whitebark_pine_repeats %>% 
+  filter((TPA_UNADJ == 74.965282) | 
+   (is.na(TPA_UNADJ) & (lag(TPA_UNADJ) == 74.965282 | lead(TPA_UNADJ) == 74.965282))
+  ) 
+
+# okay now add the expansion factor to scale microplot trees up to the subplot level so we can compare total number of tree mortalitt
+whitebark_pine_microplot <- whitebark_pine_microplot %>%
+  mutate(microplot_corrected = 1 * 12.4567479)
+
+whitebark_pine_repeats <- whitebark_pine_repeats %>%
+  left_join(select(whitebark_pine_microplot, TREE_COMPOSITE_ID, microplot_corrected), by = "TREE_COMPOSITE_ID")
+
+str(whitebark_pine_repeats)
+  
+# Plot histogram of live vs dead
+# Filter trees that died
+dead_trees_corrected <- whitebark_pine_repeats %>%
+  group_by(TREE_COMPOSITE_ID) %>%
+  filter(any(STATUSCD == 2) & any(STATUSCD == 1)) %>%
+  ungroup()
+
+
+# Extract the DIA values when trees were alive so we can plot death as a function of the state variable (size)
+alive_dia_corrected <- dead_trees_corrected %>%
+  filter(STATUSCD == 1) %>%
+  select(TREE_COMPOSITE_ID, DIA, microplot_corrected) %>%
+  mutate(weight = if_else(is.na(microplot_corrected), 1, microplot_corrected))
+
+# Filter trees that survived - last status is alive 
+survived_trees_corrected <- whitebark_pine_repeats %>%
+  group_by(TREE_COMPOSITE_ID) %>%
+  filter(STATUSCD == 1) %>%
+  ungroup() %>%
+  select(TREE_COMPOSITE_ID, DIA, microplot_corrected) %>%
+  mutate(weight = if_else(is.na(microplot_corrected), 1, microplot_corrected))
+
+# Calculate mean DIA
+mean_dia_all <- mean(whitebark_pine_repeats$DIA, na.rm = TRUE)
+mean_dead_trees <- mean(alive_dia_corrected$DIA, na.rm = TRUE)
+
+#plot percentages of morality on histogram
+# Calculate frequencies and percentages
+
+bins <- seq(0, 30, by = 1)
+
+alive_dia_binned <- alive_dia_corrected %>%
+  mutate(bin = cut(DIA, breaks = bins, include.lowest = TRUE)) %>%
+  group_by(bin) %>%
+  summarise(count = sum(weight))
+
+survived_trees_binned <- survived_trees_corrected %>%
+  mutate(bin = cut(DIA, breaks = bins, include.lowest = TRUE)) %>%
+  group_by(bin) %>%
+  summarise(count = sum(weight))
+
+# Combine data and calculate percentages
+combined_binned <- full_join(alive_dia_binned, survived_trees_binned, by = "bin", suffix = c("_died", "_survived")) %>%
+  replace_na(list(count_died = 0, count_survived = 0)) %>%
+  mutate(total = count_died + count_survived,
+         perc_died = (count_died / total) * 100,
+         perc_survived = (count_survived / total) * 100)
+
+
+# Plot histogram 
+mortality_hist <-ggplot() +
+  geom_histogram(data = survived_trees_corrected, aes(x = DIA, weight = weight, fill = "Survived"), binwidth = 1, color = "white", alpha = 0.75, position = "identity") + 
+  geom_histogram(data = alive_dia_corrected, aes(x = DIA, weight = weight, fill = "Died"), binwidth = 1, color = "white", alpha = 0.6, position = "identity") +
+  labs(title = "Whitebark Pine Mortality and Survival of remeasured trees from 2003-2019 in the interior west",
+       x = "Diameter (in.)",
+       y = "Number of Trees", 
+       fill = "Tree Status") +
+  geom_vline(aes(xintercept = mean_dead_trees), color = "red", linetype = "dashed") + 
+  geom_vline(aes(xintercept = mean_dia_all), color = "black", linetype = "dashed") + 
+  theme_bw() + 
+  scale_fill_manual(values = c("Died" = "#006699", "Survived" = "#9999FF"))
+
+ggsave("mortality_hist.png", mortality_hist, width = 10, height = 6)
+
+##okay this table is adjusted for saplings on the microplot
+
+
+```
+
+# Okay now explore some the disturbance agents and damage agent codes
+
+```{r}
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+
+whitebark_pine_agentcd <- whitebark_pine_repeats %>%
+  filter(STATUSCD == 2)
+
+print(unique(whitebark_pine_agentcd$AGENTCD)) # 10, 20, 30, 40, 50, 60, 70
+print(length(unique(whitebark_pine_agentcd$TREE_COMPOSITE_ID))) #5091
+
+whitebark_pine_agentcd_unique <- whitebark_pine_agentcd %>%
+  group_by(TREE_COMPOSITE_ID) %>%
+  arrange(TREE_COMPOSITE_ID, INVYR) %>%
+  slice(1) %>%
+  ungroup()
+
+whitebark_pine_agentcd_unique$AGENTCD <- factor(whitebark_pine_agentcd_unique$AGENTCD, exclude = NULL)
+
+mortality_labels <- c(
+  "10" = "Insect",
+  "20" = "Disease",
+  "30" = "Fire",
+  "40" = "Animal",
+  "50" = "Weather",
+  "60" = "Vegetation",
+  "70" = "Unknown",
+  "NA" = "NA"
+)
+
+whitebark_pine_agentcd_unique$AGENTCD <- as.character(whitebark_pine_agentcd_unique$AGENTCD)
+
+# Create a bar plot showing the frequency distribution of AGENTCD
+agent_hist <- ggplot(data = whitebark_pine_agentcd_unique, aes(x =  as.factor(AGENTCD), fill = AGENTCD)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Mortality Causing Agents of Whitebark Pine",
+       x = "Mortality Agent",
+       y = "Frequency") +
+  scale_x_discrete(labels = mortality_labels) +
+  scale_fill_manual(values = c("10" = "black",
+                               "20" = "darkorange",
+                               "30" = "darkred",
+                               "40" = "brown",
+                               "50" = "darkblue",
+                               "60" = "darkgreen",
+                               "70" = "purple4",
+                               "NA" = "gray")) +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  ylim(0, 2800)
+
+ggsave("agentcd_hist.png", agent_hist, width = 10, height = 6)
+
+
+```
+
+# Okay now add condition level disturbance codes to the mix
+
+```{r}
+
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+whitebark_pine_agentcd_unique$DSTRBCD1 <- as.factor(whitebark_pine_agentcd_unique$DSTRBCD1)
+whitebark_pine_agentcd_unique$DSTRBCD2 <- as.factor(whitebark_pine_agentcd_unique$DSTRBCD2)
+whitebark_pine_agentcd_unique$DSTRBCD3 <- as.factor(whitebark_pine_agentcd_unique$DSTRBCD3)
+
+print(unique(whitebark_pine_agentcd$DSTRBCD1)) # 0, 21, 22, 12, 31, 30, 32, 20, 95, 50, 10, 46, 92, 60, 52
+
+# Define the disturbance code labels
+disturbance_labels <- c(
+  "0" = "No visible disturbance",
+  "10" = "Insect damage",
+  "12" = "Insect damage to trees, including seedlings and saplings",
+  "20" = "Disease damage",
+  "21" = "Disease damage to understory vegetation",
+  "22" = "Disease damage to trees, including seedlings and saplings",
+  "30" = "Fire damage (from crown and ground fire, either prescribed or natural)",
+  "31" = "Ground fire damage",
+  "32" = "Crown fire damage",
+  "40" = "Animal damage",
+  "41" = "Beaver (includes flooding caused by beaver)",
+  "42" = "Porcupine",
+  "43" = "Deer/ungulate",
+  "44" = "Bear",
+  "45" = "Rabbit",
+  "46" = "Domestic animal/livestock (includes grazing)",
+  "50" = "Weather damage",
+  "51" = "Ice",
+  "52" = "Wind (includes hurricane, tornado)",
+  "53" = "Flooding (weather induced)",
+  "54" = "Drought",
+  "60" = "Vegetation (suppression, competition, vines)",
+  "70" = "Unknown / not sure / other",
+  "80" = "Human-induced damage",
+  "90" = "Geologic disturbances",
+  "91" = "Landslide",
+  "92" = "Avalanche track", 
+  "NA" = "NA"
+)
+
+ggplot(data = whitebark_pine_agentcd_unique, aes(x = DSTRBCD1)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Disturbance Agents to the forest stand",
+       x = "Disturbance Code",
+       y = "Frequency") +
+  scale_x_discrete(labels = disturbance_labels) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# pooling some of the forest disturbance agents 
+whitebark_pine_agentcd_unique <- whitebark_pine_agentcd_unique %>%
+  mutate(PooledCategory = case_when(
+    DSTRBCD1 == 0  ~ "No visible damage",
+    DSTRBCD1 %in% c("10", "12") ~ "Insect damage",
+    DSTRBCD1 %in% c("20", "21", "22") ~ "Disease damage",
+    DSTRBCD1 %in% c("30", "31", "32") ~ "Fire damage",
+    DSTRBCD1 %in% c("46", "50", "52", "60", "92", "95") ~ "Other",
+    TRUE ~ as.character(DSTRBCD1)  # Retain other codes as they are
+  ))
+
+whitebark_pine_agentcd_unique$PooledCategory <- factor(whitebark_pine_agentcd_unique$PooledCategory)
+
+ggplot(data = whitebark_pine_agentcd_unique, aes(x = PooledCategory)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Distribution of Disturbance Codes",
+       x = "Disturbance Category",
+       y = "Frequency") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+# Make a joint plot with mortality and disturbance
+```{r}
+#  custom colors for the disturbance categories
+custom_colors <- c(
+  "Disease damage" = "darkorange",
+  "Fire damage" = "darkred",
+  "Insect damage" = "black",
+  "No visible damage" = "darkblue",
+  "Other" = "purple4"
+)
+
+# plot this histogram
+dist_agent_hist <- ggplot(data = whitebark_pine_agentcd_unique, aes(x = AGENTCD, fill = PooledCategory)) +
+  geom_bar(position = "dodge", color = "white") +
+  labs(title = "Disturbance categories of whitebark pine by mortality agent",
+       x = "Mortality Agent",
+       y = "Number of trees",
+       fill = "Disturbance Category") +
+  scale_x_discrete(labels = mortality_labels) +
+  scale_fill_manual(values = custom_colors) +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+ggsave("dist_agent.png", dist_agent_hist, width = 10, height = 6)
+
+
+```
+
 # Mapping out the trees onto the landscape for which we have remeasurement data and tree ring data - for ESA
 
 
 ```{r}
 
-whitebark_pine_map <- whitebark_pine_repeats %>% 
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+# reading in the wbp range file
+wbp_range_data <- sf::st_read("WBP_Range_2014_v11/WBP_range_2014_d.shp") 
+wbp_range_data_transformed <- st_transform(wbp_range_data, crs = st_crs(3857))
+
+# read in tree ring occurence data
+tree_ring_map <- read_csv("data_processed/wbp_fiadb.csv")
+tree_ring_map <- tree_ring_map %>% 
+  select(c(CN, LAT, LON))
+
+
+wbp_ext <- draw_ext()
+wbp_ext_transformed <- st_transform(wbp_ext, crs = st_crs(3857))
+
+# Prepare the FIA plots data
+whitebark_fia_map <- whitebark_pine_repeats  %>% 
   select(TREE_COMPOSITE_ID, LAT, LON, STATECD, INVYR) %>% 
   group_by(TREE_COMPOSITE_ID, LAT, LON, STATECD) %>% 
-  summarize(NYEARS = as.factor(length(unique(INVYR)))) %>% 
   mutate(STATECD = as.factor(STATECD)) %>% 
   ungroup()
 
-wbp_states <- tigris::states() %>% 
-  filter(STATEFP %in% c("16", "56", "30"))
+# Make spatial
+whitebark_fia_sf <- st_as_sf(whitebark_fia_map, coords = c("LON", "LAT"), crs = 4326) %>%
+  st_transform(crs = st_crs(3857))
 
-# get the extent of the states
-bbox <- st_bbox(wbp_states)
+# get the extent of the fia data as a sf polygon
+fia_extent_sf <- st_as_sfc(st_bbox(whitebark_fia_sf), crs = st_crs(3857))
 
-# view all available maps
-get_maptypes()
+#wrangling tree ring data 
+treering_points_sf <- st_as_sf(tree_ring_map, coords = c("LON", "LAT"), crs = st_crs(4326)) %>%
+  st_transform(crs = st_crs(3857))  # Transform to the same CRS as the FIA data
+treering_extent_sf <- st_as_sfc(st_bbox(treering_points_sf), crs = st_crs(3857))
 
-# set defaults for the basemap
-set_defaults(map_service = "esri", map_type = "usa_topo_maps")
+# Calculate combined bounding box manually
+xmin <- -12993790
+xmax <- -12139280
+ymin <- 5253893
+ymax <- 6273750
 
-# MAKE SURE TO FOLLOW THIS
-# or, when combined with an sf vector object,
-# make sure to use Web/Pseudo Mercator (EPSG 3857), as this is
-# the CRS in which all basemaps are returned (see "Value"):
+# corners of the bounding box
+bbox_corners <- matrix(c(xmin, ymin,
+                         xmax, ymin,
+                         xmax, ymax,
+                         xmin, ymax,
+                         xmin, ymin), # Close the polygon by repeating the first point
+                       ncol = 2, byrow = TRUE)
 
-bbox <- st_transform(wbp_states, crs = st_crs(3857))
+# convert the single polygon into an sf object
 
-ggplot(wbp_states) +
-  basemap_gglayer(bbox) + 
-  geom_sf() +
-  geom_jitter(data = whitebark_pine_map, aes(LON, LAT, color = STATECD)) +
-  ggtitle("Remeasured WBP") +
-  scale_color_brewer(palette = "YlGnBu") +
-  theme_bw()
+bbox_polygon <- st_polygon(list(bbox_corners))
+bbox_sf <- st_sfc(bbox_polygon, crs = 3857)  #this was for basemaps package
+bbox_sf_object <- st_sf(geometry = bbox_sf)
+
+# make this look better with leaflet maybe? 
+# putting sf objects on correct prohjection
+whitebark_fia_leaflet <- st_as_sf(whitebark_fia_map, coords = c("LON", "LAT"), crs = 4326)
+treering_points_leaflet <- st_as_sf(tree_ring_map, coords = c("LON", "LAT"), crs = st_crs(4326))
+wbp_range_data_leaflet <- st_transform(wbp_range_data_transformed, crs = st_crs(4326))
+wbp_range_data_leaflet <- st_simplify(wbp_range_data_leaflet, preserveTopology = TRUE)
+bbox_sf_object_leaflet <- st_transform(bbox_sf_object, crs = st_crs(4326))
+
+plot(st_geometry(wbp_range_data_leaflet))
+
+# start a leaflet map
+main_map <- leaflet() %>% 
+  addProviderTiles(providers$Esri.WorldTopoMap) %>%  # adding topo basemap
+  setView(lng = mean(st_coordinates(treering_points_leaflet)[,1]), lat = mean(st_coordinates(treering_points_leaflet)[,2]), zoom = 6) %>%  # set the initial view
+  # for the range map 
+  addPolygons(data = wbp_range_data_leaflet, 
+              weight = 2, 
+              color = "#17202A", 
+              fillColor = "#145A32", 
+              fillOpacity = 0.25) %>% 
+  addPolygons(data = bbox_sf_object_leaflet, 
+              weight = 5, 
+              color = "darkred", 
+              fillOpacity = 0) %>% 
+  # for the FIA data
+  addCircles(data = whitebark_fia_leaflet,
+                   radius = 2,
+                   color = "#1F618D",
+                   fillOpacity = 0.6) %>% 
+  # for the tree ring data
+  addCircles(data = treering_points_leaflet,
+             radius = 2,
+             color = "#F1C40F",  # Ensuring both color and fillColor are set
+             fillOpacity = 0.75) %>%
+  # adding an inset map 
+  addMiniMap(
+             toggleDisplay = TRUE,
+             position = "topright",
+             width = 200, height = 200,
+             zoomLevelOffset = -3.5) %>% 
+  # adding a scale bar
+  addScaleBar("bottomright") %>% 
+  # adding a legend
+  addLegend(position = "bottomright", colors = c("#145A32", "#1F618D", "#F1C40F"), 
+            labels = c("WBP Range", "WBP FIA census data", "WBP tree-ring data"), opacity = 0.75)
+
+#saving image as png file
+mapshot(main_map, file = 'wbp_map.png')
 
 
-
-
-ggplot() + 
-  basemap_gglayer(bbox) 
-  # geom_sf(data = wbp_states, fill = "lightgray", color = "black", inherit.aes = FALSE) +
-  # geom_jitter(data = whitebark_pine_map, aes(x = LON, y = LAT, color = STATECD), size = 2) +
-  # scale_color_brewer(palette = "YlGnBu") +
-  # ggtitle("Remeasured WBP") +
-  # theme_bw()
-
-# or as ggplot2 layer:
-library(ggplot2)
-ggplot() +
-basemap_gglayer(ext) +
-scale_fill_identity() +
-coord_sf()
-# or, when combined with an sf vector object,
-# make sure to use Web/Pseudo Mercator (EPSG 3857), as this is
-# the CRS in which all basemaps are returned (see "Value"):
-library(sf)
-ext <- st_transform(ext, crs = st_crs(3857))
-ggplot() +
-basemap_gglayer(ext) +
-geom_sf(data = ext, color = "red", fill = "transparent") +
-coord_sf() +
-scale_fill_identity()
-
-
-
+## okay this does not work in leaflet
 ```
+

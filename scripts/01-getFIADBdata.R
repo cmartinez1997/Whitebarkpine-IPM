@@ -68,7 +68,7 @@ for (i in db_file_names_MT) {
 path_out_WY <- "data_raw/"
 
 # reference the database and checking the connection and table names
-con_WY <-  dbConnect(RSQLite::SQLite(), "SQLite_FIADB_WY.db")
+con_WY <-  dbConnect(RSQLite::SQLite(), "SQLite_FIADB_WY.db 2")
 dbGetQuery(conn = con_WY, "SELECT name FROM sqlite_master WHERE type='table';")
 
 # subset tables that you want
@@ -84,8 +84,9 @@ db_file_names_WY <-
 # loop through specified tables and write them at csvs
 for (i in db_file_names_WY) {
   write_csv(dbReadTable(conn = con_WY, name = i),
-            file = paste0(path_out_WY, "WY_", i, ".csv"))
+            file = paste0(path_out_WY, "WY_update_", i, ".csv"))
 }
 
 # close connection
 dbDisconnect(con_ID, con_MT, con_WY)
+# dbDisconnect(con_WY)

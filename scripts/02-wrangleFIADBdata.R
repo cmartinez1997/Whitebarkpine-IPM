@@ -20,9 +20,14 @@ ID_plot <- read_csv("data_raw/ID_PLOT.csv")
 ID_cond <- read_csv("data_raw/ID_COND.csv")
 
 # read in Wyoming data
-WY_tree <- read_csv("data_raw/WY_TREE.csv")
-WY_plot <- read_csv("data_raw/WY_PLOT.csv")
-WY_cond <- read_csv("data_raw/WY_COND.csv")
+WY_tree_old <- read_csv("data_raw/WY_TREE.csv")
+WY_plot_old <- read_csv("data_raw/WY_PLOT.csv")
+WY_cond_old <- read_csv("data_raw/WY_COND.csv")
+
+  
+WY_tree <- read_csv("data_raw/WY_update_TREE.csv")
+WY_plot <- read_csv("data_raw/WY_update_PLOT.csv")
+WY_cond <- read_csv("data_raw/WY_update_COND.csv")
 
 
 # Wrangle data ------------------------------------------------------------
