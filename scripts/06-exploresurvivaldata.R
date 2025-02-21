@@ -4,11 +4,10 @@
 ## April 20 2023
 ## cecimartinez333@gmail.com
 
-
-
 # Load necessary packages -------------------------------------------------
 
 library(ggplot2)
+
 library(wesanderson)
 library(tidyverse)
 
@@ -18,29 +17,27 @@ wbp_survival <- read_csv("data_processed/WBP_surv.csv")
 
 # explore data ------------------------------------------------------------
 
+wbp_survival <- wbp_survival %>%
+  relocate(PREV_MEASYEAR, MEASYEAR, .after = 4) 
+
 # look at mortality, by PREV_MEASYEAR and MEASYEAR
 surv_table1 <- table(wbp_survival[, c("PREV_MEASYEAR", "STATUSCD")])
-wbp_survival1 <- surv_table1[,1]/(surv_table1[,1]+surv_table1[,2]) #calculates survival probabilities from the 1st census within the population at that time, for each year
+wbp_survival1 <- surv_table1[,1]/(surv_table1[,1]+surv_table1[,2]) #calculates the percentage of live vs dead 
 barplot(wbp_survival1, 
         names.arg = names(wbp_survival1), 
         col = "skyblue", 
-        main = "Survival Probability Over Years",
-        xlab = "Year",
-        ylab = "Survival Probability")
+        xlab = "Year")
 
 # survival probability ranges from 0.2307 in 2010, to 0.5652 in 2011, but note that sample size is much lower in 2011 than in previous years
 surv_table2 <- table(wbp_survival[, c("MEASYEAR", "STATUSCD")])
-wbp_survival2 <- surv_table2[,1]/(surv_table2[,1]+surv_table2[,2]) # calculates survival probability from the 2nd census within population 
+wbp_survival2 <- surv_table2[,1]/(surv_table2[,1]+surv_table2[,2]) 
 barplot(wbp_survival2, 
         names.arg = names(wbp_survival2), 
         col = "skyblue", 
-        main = "Survival Probability Over Years",
-        xlab = "Year",
-        ylab = "Survival Probability")
-# survival ranges from 0.2498 to 0.4756 (lower overall survival in later years, trending downwards)
+        xlab = "Year")
+# survival ranges from 0.2498 to 0.4756 lower overall survival in later years, trending downwards
 
-# Making plots of survied vs died by states 
-# Make new column to give meaningful levels to these statuscodes and then make a barplot
+
 wbp_survival$STATUSCODE <- factor(wbp_survival$STATUSCD, levels = c(1, 2), labels = c("Lived", "Died"))
 # plot of total died vs total suyrvived
 ggplot(wbp_survival, aes(x = STATUSCODE, fill = STATUSCODE)) +
@@ -49,21 +46,17 @@ ggplot(wbp_survival, aes(x = STATUSCODE, fill = STATUSCODE)) +
   xlab("Status") 
 
 # how many trees died and how many trees lived
-# Count the number of individuals in each category
 status_counts <- table(wbp_survival$STATUSCODE)
-
-# Count of individuals who lived
 lived_count <- status_counts["Lived"]
-
-# Count of individuals who died
 died_count <- status_counts["Died"]
 
-# Print the counts
+# Print the counts - this is not correct 
 print(paste("Lived:", lived_count))
 print(paste("Died:", died_count)) #4715 died from 2003-2019
 
 range(wbp_survival$INVYR) #2013-2019
 range(wbp_survival$PREV_MEASYEAR) #2003-2011
+
 # plot by alive and died by state
 ggplot(data = wbp_survival, aes(x = as.factor(STATECD), fill = STATUSCODE)) +
   geom_bar(position = "dodge") +

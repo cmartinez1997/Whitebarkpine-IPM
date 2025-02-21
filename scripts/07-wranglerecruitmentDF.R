@@ -8,7 +8,7 @@
 # load packages -----------------------------------------------------------
 
 library(tidyverse)
-library(sp)
+library(sf)
 library(raster)
 library(wesanderson)
 
@@ -16,6 +16,8 @@ library(wesanderson)
 
 tree_iw <- read_csv("data_processed/TREE_MT-ID-WY.csv") 
 plot_iw <- read_csv("data_processed/PLOT_MT-ID-WY.csv")
+
+
 cond_iw <- read_csv("data_processed/COND_MT-ID-WY.csv") 
 
 # filter data -------------------------------------------------------------
@@ -179,4 +181,4 @@ recruitment_dat1 <- recruitment_dat[complete.cases(recruitment_dat),]
 # export ------------------------------------------------------------------
 write.csv(recruitment_dat, "data_processed/WBP_recruit.csv")
 
-save(r_sizemean, r_sizesd, file = "models//recrstats.Rdata")
+save(r_sizemean, r_sizesd, file = "models/recrstats.Rdata")

@@ -44,7 +44,21 @@ wbp_meta <- wbp_meta %>% filter(!is.na(TRE_CN) & !is.na(PLT_CN)) #219 unique tre
 ## fiadb cn from the tree table, there is no match, is this an error in tree_cns?
 
 
-wbp_fiadb <- left_join(wbp_meta, tree_dat_wbp_iw, by = c("TRE_CN"))
+wbp_fiadb <- left_join(wbp_meta, tree_dat_wbp_iw, by = c("TRE_CN")) %>% 
+  select(CN, STATECD.x, COUNTYCD.x, PLOT.x, FIADB_PLOT, SUBP.x, TREE.x, DIA.x, MEASYEAR, LAT, LON, ELEV, CNT_HT, CNT_LGTH, CNT_X, PITH, RINGCOUNT, VERIFY, REVISIT, INVYR, PLT_CN.x, TRE_CN) %>% 
+  rename(DIA = DIA.x) %>% 
+  rename(CORE_CN = CN) %>% 
+  rename(PLOT_CN = PLT_CN.x) %>% 
+  rename(PLOT = PLOT.x) %>% 
+  rename(COUNTYCD = COUNTYCD.x) %>% 
+  rename(STATECD = STATECD.x) %>% 
+  rename(SUBP = SUBP.x) %>% 
+  rename(TREE = TREE.x)
+  
+write_csv(wbp_fiadb, "data_processed/wbp_meta_2018.csv")
+  
+  
+
 
 #if (388911076489998 %in% tree_dat_wbp_iw$PREV_TRE_CN ) {
 #  print("Value exists in the DataFrame")

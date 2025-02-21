@@ -5,20 +5,31 @@
 ## cecimartinez333@gmail.com
 
 ### Create vital rate and IPM functions 
+# data <- FIA
 
-# Survival ---------------------------------------
+# names(sdata)
+# names(surv_scaling$scale)
+# str(surv_scaling)
+
+# Survival ---------------------------------------a
 #s.x <- function(size.x, Tann, PPTann, interval = 1) {
 s.x <- function(model, size.x, data, interval = 1, elast = F, perturb = 0, t.clamp = F, plot=14546600020004) {
   sdata <- data.frame(PREVDIA = size.x, 
-                      BALIVE = data$BALIVE)  
+                      BALIVE = data$BALIVE, 
+                      MAT = ifelse(t.clamp == T & data$MAT > 12.5, 12.5, data$MAT), # clamp response where Tann > 12
+                      #T_yr_norm = data$T_yr,
+                      MAP = data$MAP)  
   # rescaled data
   scaled.sdata = data.frame(scale(sdata, 
-                                  scale = surv.scaling$scale[match(names(sdata), names(surv.scaling$scale))], # match assures that variables are matched up
-                                  center = surv.scaling$center[match(names(sdata), names(surv.scaling$center))])) # regardless of the order they are entered
+                                  scale = surv_scaling$scale[match(names(sdata), names(surv_scaling$scale))], # match assures that variables are matched up
+                                  center = surv_scaling$center[match(names(sdata), names(surv_scaling$center))])) # regardless of the order they are entered
+  
+  scaled.sdata$MAT=as.matrix(scaled.sdata$MAT)
+  scaled.sdata$MAP=as.matrix(scaled.sdata$MAP)
   
   # add the census interval offset to the scaled data
   scaled.sdata = cbind(scaled.sdata,
-                       CENSUS_INTERVAL = interval) 
+                       REMEAS_PERIOD = interval) 
   #scaled.sdata$CENSUS_INTERVAL <- interval # would this be equivalent? consistent with fec below
   scaled.sdata$PLT_CN_factor = as.factor(plot)
   
@@ -39,11 +50,14 @@ g.yx <- function(model, growSD, size.x, size.y, h, data, interval = 1, elast = F
   # raw (unscaled) data
   gdata <- data.frame(PREVDIA = size.x,
                       #BALIVE = ifelse(ba.clamp == T & data$BALIVE > 190, 190, data$BALIVE)
-                      BALIVE = data$BALIVE
+                      BALIVE = data$BALIVE, 
+                      MAT = ifelse(t.clamp == T & data$MAT > 12.5, 12.5, data$MAT), # clamp response where Tann > 12
+                      #T_yr_norm = data$T_yr,
+                      MAP = data$MAP
   ) 
-  scaled.gdata = data.frame(scale(gdata, 
-                                  scale = gr.scaling$scale[match(names(gdata), names(gr.scaling$scale))], 
-                                  center = gr.scaling$center[match(names(gdata), names(gr.scaling$center))]))  
+  scaled.gdata <- data.frame(scale(gdata, 
+                                  scale = growth_scaling$scale[match(names(gdata), names(growth_scaling$scale))], 
+                                  center = growth_scaling$center[match(names(gdata), names(growth_scaling$center))]))  
   scaled.gdata$PLT_CN_factor = as.factor(plot)
   
   # apply the fitted model to the scaled input data
@@ -57,17 +71,22 @@ g.yx <- function(model, growSD, size.x, size.y, h, data, interval = 1, elast = F
   
 }
 
+
 # g.mean is used for making a map (raster) of predicted growth
+
 g.mean <- function(model, size.x, data, interval = 1, elast = F, perturb = 0, t.clamp = F, ba.clamp = F, plot=14546600020004) {
   # raw (unscaled) data
   gdata <- data.frame(PREVDIA = size.x,
                       #BALIVE = ifelse(ba.clamp == T & data$BALIVE > 190, 190, data$BALIVE).
-                      BALIVE = data$BALIVE
+                      BALIVE = data$BALIVE, 
+                      MAT =  data$MAT, # clamp response where Tann > 12
+                      #T_yr_norm = data$T_yr,
+                      MAP = data$MAP
   )
   # rescaled data
   scaled.gdata = data.frame(scale(gdata, 
-                                  scale = gr.scaling$scale[match(names(gdata), names(gr.scaling$scale))], 
-                                  center = gr.scaling$center[match(names(gdata), names(gr.scaling$center))]))  
+                                  scale = growth_scaling$scale[match(names(gdata), names(growth_scaling$scale))], 
+                                  center = growth_scaling$center[match(names(gdata), names(growth_scaling$center))]))  
   scaled.gdata$PLT_CN_factor = as.factor(plot)
   
   # apply the fitted model to the scaled input data
@@ -80,14 +99,16 @@ g.mean <- function(model, size.x, data, interval = 1, elast = F, perturb = 0, t.
 # Fecundity -----------------------------------------------
 # function fec is used for building the IPM
 fec <- function(model, size.y, size.x, data, interval = 1, elast = F, perturb = 0, ba.clamp = F, ba.clamp2 = F) {
-  rdata <- data.frame(BALIVE = #ifelse(ba.clamp2 == T & data$BALIVE > 204, 204, 
-                        #ifelse(ba.clamp == T & data$BALIVE < 93, 93 , 
-                        data$BALIVE)
+  rdata <- data.frame(BALIVE = 
+                        data$BALIVE, 
+                      MAT = data$MAT, # clamp response where Tann > 12
+                      #T_yr_norm = data$T_yr,
+                      MAP = data$MAP)
 
   
-  scaled.rdata = data.frame(scale(rdata, 
-                                  scale = r.scaling$scale[match(names(rdata), names(r.scaling$scale))], 
-                                  center = r.scaling$center[match(names(rdata), names(r.scaling$center))]))  
+  scaled.rdata <- data.frame(scale(rdata, 
+                                  scale = r_scaling$scale[match(names(rdata), names(r_scaling$scale))], 
+                                  center = r_scaling$center[match(names(rdata), names(r_scaling$center))]))  
   scaled.rdata$CENSUS_INTERVAL <- interval
   scaled.rdata$WBPadults1 <- 1 # remove the size threshold
   scaled.rdata$off = log(scaled.rdata$CENSUS_INTERVAL) + log(scaled.rdata$WBPadults1)
@@ -95,13 +116,18 @@ fec <- function(model, size.y, size.x, data, interval = 1, elast = F, perturb = 
   rpred <- (as.vector(predict(model, newdata = scaled.rdata, type = "response")))
   if(elast==F){rpred<-rpred+perturb}else{rpred<-rpred+perturb*rpred}
   
-  return(dnorm(log(size.y), r.sizemean, r.sizesd) * rpred) # returns the probability density for quantiles ranging from size.y[1] to size.y[n]
+  return(dnorm(log(size.y), r_sizemean, r_sizesd) * rpred) # returns the probability density for quantiles ranging from size.y[1] to size.y[n]
 }
+
+
 
 # function f.mean is used for making a map (raster) of predicted fecundity (recruitment)
 f.mean <- function(model, data, interval = 1, elast = F, perturb = 0, ba.clamp = F, ba.clamp2 = F) { 
   # raw (unscaled) data
-  rdata <- data.frame(BALIVE = data$BALIVE)
+  rdata <- data.frame(BALIVE = data$BALIVE, 
+                      MAT = ifelse(t.clamp == T & data$MAT > 12.5, 12.5, data$MAT), # clamp response where Tann > 12
+                      #T_yr_norm = data$T_yr,
+                      MAP = data$MAP)
   #BALIVE = data$BALIVE,
   #T_yr_norm = data$T_yr,
   #PPT_yr_norm = data$PPT_yr)
@@ -109,8 +135,8 @@ f.mean <- function(model, data, interval = 1, elast = F, perturb = 0, ba.clamp =
   #T_c_norm = data$T_c_norm, T_m_norm = data$T_m_norm)
   # rescaled data
   scaled.rdata = data.frame(scale(rdata, 
-                                  scale = r.scaling$scale[match(names(rdata), names(r.scaling$scale))], 
-                                  center = r.scaling$center[match(names(rdata), names(r.scaling$center))]))  
+                                  scale = r_scaling$scale[match(names(rdata), names(r_scaling$scale))], 
+                                  center = r_scaling$center[match(names(rdata), names(r_scaling$center))]))  
   # add census interval offset to the scaled data
   scaled.rdata$CENSUS_INTERVAL <- interval
   

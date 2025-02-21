@@ -23,17 +23,18 @@ wbp_dat <- read_csv("data_processed/TREE_WBP_IW.csv")
 ### STATUSCD = 2 = dead tree
 ### STATUSCD = 3 = harvested tree
 wbp_surv_dat <- wbp_dat %>%
-  filter(!is.na(PREVDIA), STATUSCD %in% c(1,2)) #7817 trees 
+  filter(!is.na(PREVDIA), STATUSCD %in% c(1,2)) #8266 trees 
 
 # look up previous PLT_CN and CONDID and add columns to data frame
 surv_dat <- wbp_surv_dat %>% 
+  mutate(PREV_STATUSCD = wbp_dat$STATUSCD[match(PREV_TRE_CN, wbp_dat$TRE_CN)]) %>% 
   mutate(PREV_PLT_CN = wbp_dat$PLT_CN[match(PREV_TRE_CN, wbp_dat$TRE_CN)]) %>% 
   mutate(DIA_DIFF = wbp_surv_dat$DIA - wbp_surv_dat$PREVDIA) %>%  #diameter is dbh in inches
   mutate(PREV_CONDID = wbp_dat$CONDID[match(wbp_surv_dat$PREV_TRE_CN, wbp_dat$TRE_CN)])
 
 surv_dat_final <- surv_dat %>% dplyr::select(TRE_CN, PLT_CN, PREV_TRE_CN, PREV_PLT_CN, DIA_DIFF, SPCD, INVYR, STATECD, 
                                                        UNITCD, COUNTYCD, PLOT, SUBP, TREE, CONDID, PREVCOND, STATUSCD, DIA, 
-                                                       STOCKING, PREVDIA, PREV_CONDID, AGENTCD)
+                                                       STOCKING, PREVDIA, PREV_CONDID, AGENTCD, PREV_STATUS_CD, PREV_STATUSCD, TPAMORT_UNADJ, TPA_UNADJ)
 
 # Read in plot data and get coordinates and previous measurement year
 plot_iw <- read_csv("data_processed/PLOT_MT-ID-WY.csv")
@@ -144,7 +145,28 @@ surv_dat_final_df <- surv_dat_final_df %>%
 
 surv_dat_final_df$DIA_DIFF <- surv_dat_final_df$DIA - surv_dat_final_df$PREVDIA #getting the difference in diameters
 
+
+mortality_data <- surv_dat_final_df %>%
+  filter(PREV_STATUSCD == 1, STATUSCD == 2)
+
+# Summarize the data to count the number of dead trees in each time period
+mortality_summary <- mortality_data %>%
+  group_by(INVYR) %>%
+  summarise(dead_trees = n())
+
+# Plotting the mortality data
+ggplot(mortality_summary, aes(x = INVYR, y = dead_trees)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Tree Mortality Over Time",
+    x = "Time Sampled",
+    y = "Number of Dead Trees"
+  ) +
+  theme_minimal()
 # Create output data frame and write to csv
 write_csv(surv_dat_final_df, "data_processed/WBP_surv.csv")
+
+# okay I want to 
+
 
 

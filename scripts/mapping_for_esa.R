@@ -8,45 +8,49 @@
 # load packages -----------------------------------------------------------
 
 library(sf)
-library(dplyr)
 library(leaflet)
-library(basemaps)
+library(basemaps) # for plotting maps with a basemap background
 library(ggplot2)
 library(tidyverse)
 library(ggspatial)  
 library(grid)    
 library(patchwork)
-library(leaflet_extras)
 library(tigris)
+library(dplyr)
 
 
+devtools::install_github("16EAGLE/basemaps")
+# List available map types for the service
+get_maptypes()
 
 # reading in data ---------------------------------------------------------
 
+# This is shapefile from (make sure to cite): 
 wbp_range_data <- sf::st_read("WBP_Range_2014_v11/WBP_range_2014_d.shp") 
 wbp_range_data_transformed <- st_transform(wbp_range_data, crs = st_crs(3857))
 
-
 # Set the basemap defaults
-set_defaults(map_service = "esri", map_type = "world_topo_map")
-
+set_defaults(map_service = "carto", map_type = "light")
+basemap_magick(wbp_ext_transformed_bbox)
 # transform the bounding box to the correct CRS (EPSG 3857)
 # this uses basemaps
 
 wbp_ext <- draw_ext()
 wbp_ext_transformed <- st_transform(wbp_ext, crs = st_crs(3857))
 
-
+whitebark_pine_repeats <- read_csv("data_processed/WBP_surv.csv")
 # Prepare the FIA plots data
 whitebark_fia_map <- whitebark_pine_repeats  %>% 
-  select(TREE_COMPOSITE_ID, LAT, LON, STATECD, INVYR) %>% 
-  group_by(TREE_COMPOSITE_ID, LAT, LON, STATECD) %>% 
+  dplyr::select(TRE_CN, LAT, LON, STATECD, INVYR) %>% 
+  group_by(TRE_CN, LAT, LON, STATECD) %>% 
   mutate(STATECD = as.factor(STATECD)) %>% 
   ungroup()
 
 # Make spatial
 whitebark_fia_sf <- st_as_sf(whitebark_fia_map, coords = c("LON", "LAT"), crs = 4326) %>%
   st_transform(crs = st_crs(3857))
+
+
 
 # get the extent of the fia data as a sf polygon
 fia_extent_sf <- st_as_sfc(st_bbox(whitebark_fia_sf), crs = st_crs(3857))
@@ -58,18 +62,19 @@ wbp_range_clipped <- st_intersection(wbp_range_data_transformed, fia_extent_sf)
 
 tree_ring_map <- read_csv("data_processed/wbp_fiadb.csv")
 tree_ring_map <- tree_ring_map %>% 
-  select(c(CN, LAT, LON))
+  dplyr::select(c(CN, LAT, LON))
 
 treering_points_sf <- st_as_sf(tree_ring_map, coords = c("LON", "LAT"), crs = st_crs(4326)) %>%
   st_transform(crs = st_crs(3857))  # Transform to the same CRS as the FIA data
 
 treering_extent_sf <- st_as_sfc(st_bbox(treering_points_sf), crs = st_crs(3857))
 
+st_bbox(whitebark_fia_sf)
 # Calculate combined bounding box manually
-xmin <- -12993790
-xmax <- -12139280
-ymin <- 5253893
-ymax <- 6273750
+xmin <- -12993788   
+xmax <- -12109764
+ymin <- 5175260
+ymax <- 6273750 
 
 # corners of the bounding box
 bbox_corners <- matrix(c(xmin, ymin,
@@ -90,47 +95,82 @@ bbox_for_basemap <- st_bbox(bbox_sf_object)
 
 # Convert to an sf bbox for use in basemap_gglayer or other functions
 
-
-
 wbp_range_clipped <- st_intersection(wbp_range_data_transformed, bbox_sf_object)
 
 
-main_plot <- ggplot() +
-  basemaps::basemap_gglayer(bbox_for_basemap) +
-  geom_sf(data = bbox_sf_object, color = "darkred", fill = "darkred", alpha = 0.5) +
-  geom_sf(data = whitebark_fia_sf, size = 1.5, color = "orange") + # Adding FIA points
-  geom_sf(data = treering_points_sf, size = 1.5, color = "green") + # Adding FIA points
-  labs(title = "Remeasured Whitebark Pine (WBP) Distribution Map") +
+main_map <- ggplot() +
+  annotation_map_tile(type = "cartolight", zoom = 7) +  # Use cartolight basemap
+  # Add WBP range with fill and outline
+  geom_sf(data = wbp_range_clipped, aes(fill = "WBP Range"), color = "#145A32", alpha = 0.35) +
+  # Add study area (bounding box)
+  geom_sf(data = bbox_sf_object, aes(color = "Study Area"), fill = NA, linewidth = 1) +
+  # Add FIA points
+  geom_sf(data = whitebark_fia_sf, aes(color = "FIA Remeasurement Data"), size = 1.5, alpha = 0.8) +
+  # Add tree-ring points
+  geom_sf(data = treering_points_sf, aes(fill = "FIA Tree-Ring Data", color = "Tree-Ring Points"), size = 2, pch = 21, alpha = 0.8) +
   coord_sf(crs = st_crs(3857)) +
-  scale_fill_identity() + 
+  xlab("Longitude") + 
+  ylab("Latitude") +
   theme_minimal() +
-  theme(
-    panel.background = element_blank(),
-    axis.text = element_blank(),
-    axis.title = element_blank(),
-    axis.ticks = element_blank(),
-    plot.margin = margin(t = 5, r = 5, b = 30, l = 5, unit = "pt")
-  ) 
-
-
-inset_plot <- ggplot() +
-  basemaps::basemap_gglayer(wbp_ext_transformed) +
-  geom_sf(data = wbp_range_data, color = "#145A32", fill = "#145A32", alpha = 0.25) +
-  geom_rect(aes(xmin = bbox_for_basemap$xmin, xmax = bbox_for_basemap$xmax, ymin = bbox_for_basemap$ymin, ymax = bbox_for_basemap$ymax),
-            fill = NA, color = "darkred") +
-  coord_sf(crs = st_crs(3857)) +
-  scale_fill_identity() + 
-  theme_void() +
-  theme(
-    panel.border = element_rect(colour = "black", fill = NA, size = 1)
-  )
-
-north_arrow <- ggplot() +
-  coord_sf(crs = st_crs(3857), datum = NA) + 
+  # Add scale bar
+  annotation_scale(location = "bl", width_hint = 0.2) +
+  # Add north arrow
   annotation_north_arrow(location = "bl", which_north = "true", 
                          pad_x = unit(0.5, "cm"), pad_y = unit(0.5, "cm"),
                          style = north_arrow_fancy_orienteering) +
-  theme_void()
+  # Add black border around the whole plot
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+  # Unified legend for all layers
+  scale_fill_manual(values = c("WBP Range" = "#145A32", 
+                               "FIA Tree-Ring Data" = "#FFDF42"),
+                    name = "Legend") +
+  scale_color_manual(values = c("Study Area" = "darkred", 
+                                "FIA Remeasurement Data" = "navyblue",
+                                "FIA Tree-Ring Data" = "black"),
+                     name = "Legend") + 
+  theme(legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"))
+  
+
+  #1.5 percent decrease every ear
+
+basemap <- get_stadiamap(bbox = bbox, maptype = "stamen_terrain", zoom = 8)
+
+wbp_ext_transformed_bbox <- st_bbox(wbp_ext_transformed)
+
+inset_plot <- ggplot() +
+  annotation_map_tile(type = "cartolight", zoom = 7) +  # Use cartolight basemap
+  geom_sf(data = wbp_range_data, aes(fill = "WBP Range"), color = "#145A32", alpha = 0.5) +
+  geom_rect(aes(xmin = bbox_for_basemap$xmin, xmax = bbox_for_basemap$xmax, 
+                ymin = bbox_for_basemap$ymin, ymax = bbox_for_basemap$ymax, 
+                color = "Study Area"), fill = NA) + 
+  xlab("Longitude") + 
+  ylab("Latitude") +
+  theme_classic() +
+  # Add scale bar
+  annotation_scale(location = "bl", width_hint = 0.2) +
+  # Add north arrow
+  annotation_north_arrow(location = "bl", which_north = "true", 
+                         pad_x = unit(0.5, "cm"), pad_y = unit(0.5, "cm"),
+                         style = north_arrow_fancy_orienteering) +
+  # Add black border around the whole plot
+  theme(panel.border = element_rect(color = "black", fill = NA, size = 1)) + 
+  scale_fill_manual(values = c("WBP Range" = "#145A32"), 
+                    name = "Legend") +
+  scale_color_manual(values = c("Study Area" = "darkred"), 
+                     name = "Legend") +
+
+  # Make legend text bold
+  theme(legend.text = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"))
+ggsave(filename = "inset_plot.png", plot = inset_plot, width = 10, height = 8, dpi = 300)
+
+annotation_north_arrow(
+  location = "tr",  # top right corner
+  which_north = "true",  # true north
+  pad_x = unit(0.1, "in"), pad_y = unit(0.1, "in"),
+  style = north_arrow_fancy_orienteering
+)
 
 scale_bar <- ggplot() +
   coord_sf(crs = st_crs(3857), datum = NA) + 
@@ -146,7 +186,9 @@ final_plot <- (main_plot + inset_plot) /
 print(final_plot)
 
 
-# make this look better with leaflet maybe? 
+# make this look better with leaf
+
+# this uses leaflet to try and make better maps ---------------------------
 
 whitebark_fia_leaflet <- st_as_sf(whitebark_fia_map, coords = c("LON", "LAT"), crs = 4326) 
 treering_points_leaflet <- st_as_sf(tree_ring_map, coords = c("LON", "LAT"), crs = st_crs(4326))
@@ -232,3 +274,4 @@ wbp_map <- leaflet() %>%
 
 
 mapshot(main_map, file = 'wbp_map.png')
+

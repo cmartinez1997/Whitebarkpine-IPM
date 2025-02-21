@@ -10,13 +10,12 @@ library(sp)
 library(raster)
 library(rgdal)
 library(tidyverse)
-library(ggthemr)
 
 # Read in and process data ------------------------------------------------
 
 # read tree data and filter to only apply to whitebark pine trees (PIAL); SPCD = 101 in FIA
 grow_data <- read_csv("data_processed/TREE_MT-ID-WY.csv") #773058 total trees
-grow_data_WBP <- filter(grow_data, SPCD == 101) #36,403 wbp trees
+grow_data_WBP <- filter(grow_data, SPCD == 101) #37,487 wbp trees
 grow_data_WBP <- grow_data_WBP %>% 
   rename(TRE_CN = CN) #rename TRE_CN for CN in tree table
 
@@ -121,3 +120,8 @@ wbp_grow_survive_df$DIA_INCR <- wbp_grow_survive_df$DIA_INCR_NEG + constant
 # Create output data frame and write to csv
 write_csv(wbp_grow_survive_df, "data_processed/WBP_growth.csv")
 
+trees <- read_csv("data_processed/WBP_growth.csv")
+trees <- trees %>% 
+  filter(STATECD == "30") %>% 
+  filter(COUNTYCD == "9") %>% 
+  filter(PLOT == "80582")
